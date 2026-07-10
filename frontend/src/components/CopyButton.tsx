@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Check, Copy } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { copyToClipboard } from '@/utils/format';
 import { t } from '@/i18n/strings';
 
@@ -22,6 +23,12 @@ interface CopyButtonProps {
 }
 
 const COPY_FEEDBACK_MS = 1400;
+
+const VARIANT_MAP = {
+  tonal: 'secondary',
+  text: 'ghost',
+  outlined: 'outline',
+} as const;
 
 /**
  * One-click copy button. Shows a checkmark briefly on success.
@@ -49,18 +56,13 @@ export default function CopyButton({
     }
   };
 
-  const variantClass =
-    variant === 'text'
-      ? 'md3-btn-text'
-      : variant === 'outlined'
-        ? 'md3-btn-outlined'
-        : 'md3-btn-tonal';
-
   return (
-    <button
+    <Button
       type="button"
+      variant={VARIANT_MAP[variant]}
+      size={iconOnly ? 'icon-sm' : 'sm'}
       onClick={handleClick}
-      className={`${variantClass} relative ${className}`}
+      className={className}
       aria-label={`${t.common.copy} ${label}`}
       title={label}
     >
@@ -91,6 +93,6 @@ export default function CopyButton({
           </motion.span>
         )}
       </AnimatePresence>
-    </button>
+    </Button>
   );
 }

@@ -10,6 +10,7 @@ import {
   Link2,
   Image as ImageIcon,
   Loader2,
+  MoreHorizontal,
   Pencil,
   Search,
   SquareCode,
@@ -24,11 +25,39 @@ import {
 } from '@api/fileManager';
 import type { ImageItem } from '@api/types';
 import { useToast } from '@hooks/useToast';
-import CopyButton from '@components/CopyButton';
 import { useDebounce } from '@hooks/useDebounce';
 import ConfirmDialog from '@components/ConfirmDialog';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
+import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { t, format } from '@/i18n/strings';
-import { buildLinkFormats, formatBytes, formatDateShort } from '@/utils/format';
+import { buildLinkFormats, copyToClipboard, formatBytes, formatDateShort } from '@/utils/format';
+import { cn } from '@/lib/utils';
 
 const PAGE_SIZE = 20;
 
@@ -182,42 +211,39 @@ export default function AdminFilesPage() {
       <PageHeader />
 
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="md3-input-affix-wrap sm:max-w-xs">
-          <span className="md3-input-icon-wrap">
-            <Search className="h-4 w-4" />
-          </span>
-          <input
+        <div className="relative sm:max-w-xs sm:flex-1">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
             type="search"
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             placeholder={t.admin.searchPlaceholder}
-            className="md3-input md3-input-leading-icon"
+            className="pl-9"
           />
         </div>
       </div>
 
       {selected.size > 0 && (
-        <div className="mb-4 flex items-center justify-between gap-3 rounded-md bg-surface-container-highest px-4 py-3 shadow-elev-1 sm:hidden">
-          <p className="text-body-sm text-surface-on">{format(t.admin.bulkBar, { n: selected.size })}</p>
-          <button
-            type="button"
-            className="md3-btn-danger shrink-0"
+        <div className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-border bg-card px-4 py-3 shadow-sm sm:hidden">
+          <p className="text-sm text-foreground">{format(t.admin.bulkBar, { n: selected.size })}</p>
+          <Button
+            variant="destructive"
+            size="sm"
+            className="shrink-0"
             onClick={() => setConfirmingBatch(true)}
           >
             <Trash2 className="h-4 w-4" />
             {t.admin.bulkDelete}
-          </button>
+          </Button>
         </div>
       )}
 
       {error ? (
-        <div className="md3-card-filled flex flex-col items-center gap-3 px-6 py-12 text-error">
+        <Card className="flex flex-col items-center gap-3 px-6 py-12 text-destructive">
           <XCircle className="h-8 w-8" />
           <p>{error}</p>
-          <button type="button" className="md3-btn-filled" onClick={load}>
-            {t.common.retry}
-          </button>
-        </div>
+          <Button onClick={load}>{t.common.retry}</Button>
+        </Card>
       ) : (
         <>
           <FileTable
@@ -248,27 +274,19 @@ export default function AdminFilesPage() {
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 80, opacity: 0 }}
             transition={{ duration: 0.2, ease: [0.2, 0, 0, 1] }}
-            className="fixed inset-x-4 bottom-4 z-30 hidden items-center justify-between gap-2 rounded-md bg-surface-container-highest px-4 py-3 shadow-elev-3 sm:flex sm:left-auto sm:right-6 sm:max-w-md"
+            className="fixed inset-x-4 bottom-4 z-30 hidden items-center justify-between gap-2 rounded-xl border border-border bg-card px-4 py-3 shadow-lg sm:flex sm:left-auto sm:right-6 sm:max-w-md"
           >
-            <p className="text-body-md text-surface-on">
+            <p className="text-sm text-foreground">
               {format(t.admin.bulkBar, { n: selected.size })}
             </p>
             <div className="flex gap-2">
-              <button
-                type="button"
-                className="md3-btn-text"
-                onClick={() => setSelected(new Set())}
-              >
+              <Button variant="ghost" size="sm" onClick={() => setSelected(new Set())}>
                 {t.common.cancel}
-              </button>
-              <button
-                type="button"
-                className="md3-btn-danger"
-                onClick={() => setConfirmingBatch(true)}
-              >
+              </Button>
+              <Button variant="destructive" size="sm" onClick={() => setConfirmingBatch(true)}>
                 <Trash2 className="h-4 w-4" />
                 {t.admin.bulkDelete}
-              </button>
+              </Button>
             </div>
           </motion.div>
         )}
@@ -280,7 +298,7 @@ export default function AdminFilesPage() {
         description={
           confirmingDelete ? (
             <span>
-              <code className="rounded bg-surface-container-high px-1.5 py-0.5 text-body-sm">
+              <code className="rounded bg-muted px-1.5 py-0.5 text-xs">
                 {confirmingDelete.name}
               </code>{' '}
               {t.admin.confirmDeleteDesc}
@@ -319,8 +337,10 @@ export default function AdminFilesPage() {
 function PageHeader() {
   return (
     <header className="mb-6 sm:mb-8">
-      <h1 className="text-headline-sm text-surface-on sm:text-headline-md">{t.admin.title}</h1>
-      <p className="mt-1 text-body-sm text-surface-on/60 sm:text-body-md">{t.admin.subtitle}</p>
+      <h1 className="text-2xl font-semibold text-foreground sm:text-3xl text-balance">
+        {t.admin.title}
+      </h1>
+      <p className="mt-1 text-sm text-muted-foreground sm:text-base">{t.admin.subtitle}</p>
     </header>
   );
 }
@@ -348,57 +368,63 @@ function FileTable({
 }) {
   if (loading && files.length === 0) {
     return (
-      <div className="md3-card-filled flex items-center justify-center gap-2 px-6 py-20 text-body-md text-surface-on/60">
-        <Loader2 className="h-4 w-4 animate-spin" />
-        {t.common.loading}
-      </div>
+      <Card className="overflow-hidden">
+        <div className="flex flex-col gap-3 p-4">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-3">
+              <Skeleton className="h-10 w-10 rounded-md" />
+              <div className="flex-1 space-y-1.5">
+                <Skeleton className="h-4 w-1/3" />
+                <Skeleton className="h-3 w-1/2" />
+              </div>
+              <Skeleton className="h-8 w-24" />
+            </div>
+          ))}
+        </div>
+      </Card>
     );
   }
   if (!loading && files.length === 0) {
     return (
-      <div className="md3-card-filled px-6 py-20 text-center text-body-md text-surface-on/60">
+      <Card className="px-6 py-20 text-center text-sm text-muted-foreground">
         {t.gallery.emptyTitle}
-      </div>
+      </Card>
     );
   }
   return (
-    <div className="md3-card overflow-hidden">
+    <Card className="overflow-hidden">
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[640px] text-left text-body-md">
-          <thead className="bg-surface-container-high text-label-md uppercase tracking-wide text-surface-on/60">
-            <tr>
-              <th className="w-10 px-3 py-2">
-                <input
-                  type="checkbox"
+        <Table className="min-w-[640px]">
+          <TableHeader>
+            <TableRow className="hover:bg-transparent">
+              <TableHead className="w-10">
+                <Checkbox
                   checked={allSelected}
-                  onChange={onToggleAll}
-                  className="h-4 w-4 cursor-pointer accent-primary"
+                  onCheckedChange={onToggleAll}
                   aria-label={t.admin.selectAll}
                 />
-              </th>
-              <th className="px-3 py-2">{t.admin.colName}</th>
-              <th className="hidden w-24 px-3 py-2 sm:table-cell">{t.admin.colSize}</th>
-              <th className="hidden w-32 px-3 py-2 md:table-cell">{t.admin.colDate}</th>
-              <th className="w-[22rem] px-3 py-2 text-right">{t.admin.colActions}</th>
-            </tr>
-          </thead>
-          <tbody>
-            <AnimatePresence initial={false}>
-              {files.map((f) => (
-                <Row
-                  key={f.hash}
-                  file={f}
-                  selected={selected.has(f.hash)}
-                  onToggle={() => onToggleOne(f.hash)}
-                  onRename={() => onRename(f)}
-                  onDelete={() => onDelete(f)}
-                />
-              ))}
-            </AnimatePresence>
-          </tbody>
-        </table>
+              </TableHead>
+              <TableHead>{t.admin.colName}</TableHead>
+              <TableHead className="hidden w-24 sm:table-cell">{t.admin.colSize}</TableHead>
+              <TableHead className="hidden w-32 md:table-cell">{t.admin.colDate}</TableHead>
+              <TableHead className="w-16 text-right">{t.admin.colActions}</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {files.map((f) => (
+              <Row
+                key={f.hash}
+                file={f}
+                selected={selected.has(f.hash)}
+                onToggle={() => onToggleOne(f.hash)}
+                onRename={() => onRename(f)}
+                onDelete={() => onDelete(f)}
+              />
+            ))}
+          </TableBody>
+        </Table>
       </div>
-    </div>
+    </Card>
   );
 }
 
@@ -425,128 +451,99 @@ function Row({
     width: file.width,
     height: file.height,
   });
-  const handleCopied = (label: string) => {
-    toast.success(`${label}${t.common.copied}`);
+
+  const copyLink = async (value: string, label: string) => {
+    const ok = await copyToClipboard(value);
+    if (ok) toast.success(`${label}${t.common.copied}`);
+    else toast.error(t.common.error);
   };
 
   return (
-    <motion.tr
-      layout
-      initial={{ opacity: 0, y: 4 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0 }}
-      className={[
-        'border-t border-outline-variant/50 transition-colors duration-md3-short2 ease-md3-standard',
-        selected ? 'bg-primary-container/40' : 'hover:bg-surface-container-low',
-      ].join(' ')}
-    >
-      <td className="px-3 py-2 align-middle">
-        <input
-          type="checkbox"
-          checked={selected}
-          onChange={onToggle}
-          className="h-4 w-4 cursor-pointer accent-primary"
-          aria-label={t.admin.selectRow}
-        />
-      </td>
-      <td className="px-3 py-2">
+    <TableRow className={cn(selected && 'bg-accent/40 hover:bg-accent/40')} data-state={selected ? 'selected' : undefined}>
+      <TableCell>
+        <Checkbox checked={selected} onCheckedChange={onToggle} aria-label={t.admin.selectRow} />
+      </TableCell>
+      <TableCell>
         <div className="flex items-center gap-3">
           <a
             href={publicUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-sm bg-surface-container-highest"
+            className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-md bg-muted"
           >
             <img
               src={thumbUrl}
               alt={displayName}
               loading="lazy"
-              className="absolute inset-0 h-full w-full object-cover"
+              className="absolute inset-0 h-full w-full object-cover transition-transform duration-200 hover:scale-110"
               onError={(e) => {
                 (e.currentTarget as HTMLImageElement).classList.add('hidden');
               }}
             />
-            <ImageIcon className="h-5 w-5 text-surface-on/40" />
+            <ImageIcon className="h-5 w-5 text-muted-foreground/50" />
           </a>
           <div className="min-w-0">
             <span
-              className="block truncate font-mono text-body-sm text-surface-on"
+              className="block truncate font-mono text-xs text-foreground"
               title={displayName}
             >
               {displayName}
             </span>
             <span
-              className="mt-0.5 block truncate text-[11px] leading-4 text-surface-on/45"
+              className="mt-0.5 block max-w-[280px] truncate text-[11px] leading-4 text-muted-foreground/70"
               title={publicUrl}
             >
               {publicUrl}
             </span>
           </div>
         </div>
-      </td>
-      <td className="hidden px-3 py-2 align-middle tabular-nums text-body-sm text-surface-on/70 sm:table-cell">
+      </TableCell>
+      <TableCell className="hidden tabular-nums text-xs text-muted-foreground sm:table-cell">
         {formatBytes(file.size)}
-      </td>
-      <td className="hidden px-3 py-2 align-middle text-body-sm text-surface-on/70 md:table-cell">
+      </TableCell>
+      <TableCell className="hidden text-xs text-muted-foreground md:table-cell">
         {formatDateShort(file.uploaded_at)}
-      </td>
-      <td className="px-3 py-2 align-middle">
-        <div className="flex items-center justify-end gap-1 whitespace-nowrap">
-            <CopyButton
-              value={links.url}
-              label={t.home.copyDirect}
-              variant="tonal"
-              icon={<Link2 className="h-4 w-4" />}
-              iconOnly
-              className="h-9 w-9 justify-center px-0 py-0"
-              onCopied={() => handleCopied(t.home.copyDirect)}
-            />
-            <CopyButton
-              value={links.markdown}
-              label={t.home.copyMarkdown}
-              variant="tonal"
-              icon={<Braces className="h-4 w-4" />}
-              iconOnly
-              className="h-9 w-9 justify-center px-0 py-0"
-              onCopied={() => handleCopied(t.home.copyMarkdown)}
-            />
-            <CopyButton
-              value={links.html}
-              label={t.home.copyHtml}
-              variant="tonal"
-              icon={<CodeXml className="h-4 w-4" />}
-              iconOnly
-              className="h-9 w-9 justify-center px-0 py-0"
-              onCopied={() => handleCopied(t.home.copyHtml)}
-            />
-            <CopyButton
-              value={links.bbcode}
-              label={t.home.copyBbcode}
-              variant="tonal"
-              icon={<SquareCode className="h-4 w-4" />}
-              iconOnly
-              className="h-9 w-9 justify-center px-0 py-0"
-              onCopied={() => handleCopied(t.home.copyBbcode)}
-            />
-            <button
-              type="button"
-              className="rounded-full p-2 text-surface-on/60 transition-colors duration-md3-short2 ease-md3-standard hover:bg-primary/10 hover:text-primary"
-              onClick={onRename}
-              aria-label={t.admin.actionRename}
-            >
+      </TableCell>
+      <TableCell className="text-right">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon-sm" aria-label={t.admin.colActions}>
+              <MoreHorizontal className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-44">
+            <DropdownMenuItem onClick={() => void copyLink(links.url, t.home.copyDirect)}>
+              <Link2 className="h-4 w-4" />
+              {t.home.copyDirect}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => void copyLink(links.markdown, t.home.copyMarkdown)}>
+              <Braces className="h-4 w-4" />
+              {t.home.copyMarkdown}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => void copyLink(links.html, t.home.copyHtml)}>
+              <CodeXml className="h-4 w-4" />
+              {t.home.copyHtml}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => void copyLink(links.bbcode, t.home.copyBbcode)}>
+              <SquareCode className="h-4 w-4" />
+              {t.home.copyBbcode}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={onRename}>
               <Pencil className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              className="rounded-full p-2 text-surface-on/60 transition-colors duration-md3-short2 ease-md3-standard hover:bg-error/10 hover:text-error"
+              {t.admin.actionRename}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              className="text-destructive focus:text-destructive"
               onClick={onDelete}
-              aria-label={t.admin.actionDelete}
             >
               <Trash2 className="h-4 w-4" />
-            </button>
-        </div>
-      </td>
-    </motion.tr>
+              {t.admin.actionDelete}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </TableCell>
+    </TableRow>
   );
 }
 
@@ -576,62 +573,51 @@ function Pagination({
       className="mt-4 flex flex-col items-center justify-between gap-2 sm:flex-row"
       aria-label="pagination"
     >
-      <p className="text-label-md text-surface-on/60">
+      <p className="text-xs text-muted-foreground">
         {format(t.admin.paginationSummary, { from, to, total })}
       </p>
       <div className="flex items-center gap-1">
-        <PageButton
+        <Button
+          variant="ghost"
+          size="icon-sm"
           onClick={() => onChange(1)}
           disabled={!canPrev}
           aria-label={t.admin.paginationFirst}
         >
           <ChevronsLeft className="h-4 w-4" />
-        </PageButton>
-        <PageButton
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon-sm"
           onClick={() => onChange(page - 1)}
           disabled={!canPrev}
           aria-label={t.admin.paginationPrev}
         >
           <ChevronLeft className="h-4 w-4" />
-        </PageButton>
-        <span className="px-3 text-body-md tabular-nums text-surface-on">
+        </Button>
+        <span className="px-3 text-sm tabular-nums text-foreground">
           {page} / {totalPages}
         </span>
-        <PageButton
+        <Button
+          variant="ghost"
+          size="icon-sm"
           onClick={() => onChange(page + 1)}
           disabled={!canNext}
           aria-label={t.admin.paginationNext}
         >
           <ChevronRight className="h-4 w-4" />
-        </PageButton>
-        <PageButton
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon-sm"
           onClick={() => onChange(totalPages)}
           disabled={!canNext}
           aria-label={t.admin.paginationLast}
         >
           <ChevronsRight className="h-4 w-4" />
-        </PageButton>
+        </Button>
       </div>
     </nav>
-  );
-}
-
-function PageButton({
-  onClick,
-  disabled,
-  children,
-  ...rest
-}: React.ButtonHTMLAttributes<HTMLButtonElement>) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      className="rounded-full p-2 text-surface-on/70 transition-colors duration-md3-short2 ease-md3-standard hover:bg-primary/10 hover:text-primary disabled:opacity-30 disabled:pointer-events-none"
-      {...rest}
-    >
-      {children}
-    </button>
   );
 }
 
@@ -655,64 +641,40 @@ function RenameDialog({
   }, [file]);
 
   return (
-    <AnimatePresence>
-      {file && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.18 }}
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          role="dialog"
-          aria-modal="true"
-        >
-          <div
-            className="absolute inset-0 bg-surface-dark/40 backdrop-blur-sm"
-            onClick={() => !busy && onCancel()}
-            aria-hidden
-          />
-          <motion.div
-            initial={{ opacity: 0, scale: 0.96, y: 8 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.96 }}
-            transition={{ duration: 0.2, ease: [0.2, 0, 0, 1] }}
-            className="relative w-full max-w-md rounded-md bg-surface-container p-6 shadow-elev-3"
+    <Dialog
+      open={file !== null}
+      onOpenChange={(next) => {
+        if (!next && !busy) onCancel();
+      }}
+    >
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{t.admin.renameTitle}</DialogTitle>
+          <DialogDescription>{t.admin.renameHelp}</DialogDescription>
+        </DialogHeader>
+        <Input
+          autoFocus
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.nativeEvent.isComposing || e.keyCode === 229) return;
+            if (e.key === 'Enter' && !busy && file) void onConfirm(file, name.trim());
+          }}
+          disabled={busy}
+        />
+        <DialogFooter>
+          <Button variant="ghost" onClick={onCancel} disabled={busy}>
+            {t.common.cancel}
+          </Button>
+          <Button
+            disabled={busy || !name.trim()}
+            onClick={() => file && void onConfirm(file, name.trim())}
           >
-            <h2 className="text-title-md text-surface-on">{t.admin.renameTitle}</h2>
-            <p className="mt-1 text-body-sm text-surface-on/60">{t.admin.renameHelp}</p>
-            <input
-              autoFocus
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !busy) void onConfirm(file, name.trim());
-                if (e.key === 'Escape' && !busy) onCancel();
-              }}
-              disabled={busy}
-              className="md3-input mt-4"
-            />
-            <div className="mt-5 flex justify-end gap-2">
-              <button
-                type="button"
-                className="md3-btn-text"
-                onClick={onCancel}
-                disabled={busy}
-              >
-                {t.common.cancel}
-              </button>
-              <button
-                type="button"
-                className="md3-btn-filled"
-                disabled={busy || !name.trim()}
-                onClick={() => void onConfirm(file, name.trim())}
-              >
-                {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                {t.common.save}
-              </button>
-            </div>
-          </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+            {t.common.save}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

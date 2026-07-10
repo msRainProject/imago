@@ -39,7 +39,7 @@ function AuthGuard({ children, requireAuth = false }: { children: React.ReactNod
  * Whitelist of valid `?tab=` values for /admin.
  * Keep in sync with `Tab` in `pages/AdminConsolePage.tsx`.
  */
-const ADMIN_VALID_TABS = new Set(['settings', 'storage', 'tokens', 'users', 'passkey']);
+const ADMIN_VALID_TABS = new Set(['overview', 'settings', 'storage', 'tokens', 'users', 'passkey']);
 
 /**
  * Redirect /admin?tab=files → /files for backwards compatibility with

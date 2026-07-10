@@ -1,10 +1,29 @@
 import { useCallback, useEffect, useState } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
 import { Loader2, Plus, Trash2, XCircle } from 'lucide-react';
 import { listAppTokens, createAppToken, deleteAppToken } from '@api/admin';
 import type { AppToken } from '@api/types';
 import { useToast } from '@hooks/useToast';
 import ConfirmDialog from '@components/ConfirmDialog';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { t } from '@/i18n/strings';
 import { formatDate } from '@/utils/format';
 import { copyToClipboard } from '@/utils/format';
@@ -85,177 +104,146 @@ export default function AdminAPIKeysPage() {
     <div>
       <header className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:mb-8">
         <div>
-          <h2 className="text-title-md text-surface-on sm:text-headline-sm">API 授权</h2>
-          <p className="mt-0.5 text-body-sm text-surface-on/60">管理应用 API Key，每个 Key 独立命名空间上传</p>
+          <h2 className="text-lg font-semibold text-foreground sm:text-xl">API 授权</h2>
+          <p className="mt-0.5 text-sm text-muted-foreground">管理应用 API Key，每个 Key 独立命名空间上传</p>
         </div>
-        <button type="button" className="md3-btn-filled" onClick={() => setShowCreate(true)}>
+        <Button onClick={() => setShowCreate(true)}>
           <Plus className="h-4 w-4" />
           创建 Key
-        </button>
+        </Button>
       </header>
 
       {error ? (
-        <div className="md3-card-filled flex flex-col items-center gap-3 px-6 py-12 text-error">
+        <Card className="flex flex-col items-center gap-3 px-6 py-12 text-destructive">
           <XCircle className="h-8 w-8" />
           <p>{error}</p>
-          <button type="button" className="md3-btn-filled" onClick={load}>
-            {t.common.retry}
-          </button>
-        </div>
+          <Button onClick={load}>{t.common.retry}</Button>
+        </Card>
       ) : loading ? (
-        <div className="flex items-center justify-center gap-2 py-20 text-body-md text-surface-on/60">
-          <Loader2 className="h-5 w-5 animate-spin" />
-          {t.common.loading}
-        </div>
+        <Card className="flex flex-col gap-3 p-4">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-3">
+              <Skeleton className="h-4 w-1/4" />
+              <Skeleton className="h-4 w-12" />
+              <Skeleton className="ml-auto h-8 w-8" />
+            </div>
+          ))}
+        </Card>
       ) : keys.length === 0 ? (
-        <div className="md3-card px-6 py-16 text-center text-body-md text-surface-on/60">
+        <Card className="px-6 py-16 text-center text-sm text-muted-foreground">
           还没有 API Key，点击右上角创建一个
-        </div>
+        </Card>
       ) : (
-        <div className="md3-card overflow-hidden">
+        <Card className="overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[600px] text-left text-body-md">
-              <thead className="bg-surface-container-high text-label-md uppercase tracking-wide text-surface-on/60">
-                <tr>
-                  <th className="px-4 py-2">名称</th>
-                  <th className="hidden px-4 py-2 sm:table-cell">上传次数</th>
-                  <th className="hidden px-4 py-2 md:table-cell">流量</th>
-                  <th className="hidden px-4 py-2 sm:table-cell">最后使用</th>
-                  <th className="hidden px-4 py-2 md:table-cell">创建时间</th>
-                  <th className="w-20 px-4 py-2 text-right">{t.common.actions}</th>
-                </tr>
-              </thead>
-              <tbody>
-                <AnimatePresence initial={false}>
-                  {keys.map((key) => (
-                    <motion.tr
-                      key={key.id}
-                      layout
-                      initial={{ opacity: 0, y: 4 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0 }}
-                      className="border-t border-outline-variant/50 hover:bg-surface-container-low"
-                    >
-                      <td className="px-4 py-2 font-mono text-body-sm">{key.name}</td>
-                      <td className="hidden px-4 py-2 text-body-sm text-surface-on/70 sm:table-cell">
-                        {key.upload_count}
-                      </td>
-                      <td className="hidden px-4 py-2 text-body-sm text-surface-on/70 md:table-cell">
-                        {formatBytes(key.upload_total_bytes)}
-                      </td>
-                      <td className="hidden px-4 py-2 text-body-sm text-surface-on/70 sm:table-cell">
-                        {key.last_used ? formatDate(key.last_used) : '从未使用'}
-                      </td>
-                      <td className="hidden px-4 py-2 text-body-sm text-surface-on/70 md:table-cell">
-                        {formatDate(key.created_at)}
-                      </td>
-                      <td className="px-4 py-2 text-right">
-                        <button
-                          type="button"
-                          className="rounded-full p-2 text-surface-on/60 transition-colors hover:bg-error/10 hover:text-error"
-                          onClick={() => setDeletingId(key.id)}
-                          aria-label={t.common.delete}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </td>
-                    </motion.tr>
-                  ))}
-                </AnimatePresence>
-              </tbody>
-            </table>
+            <Table className="min-w-[600px]">
+              <TableHeader>
+                <TableRow className="hover:bg-transparent">
+                  <TableHead>名称</TableHead>
+                  <TableHead className="hidden sm:table-cell">上传次数</TableHead>
+                  <TableHead className="hidden md:table-cell">流量</TableHead>
+                  <TableHead className="hidden sm:table-cell">最后使用</TableHead>
+                  <TableHead className="hidden md:table-cell">创建时间</TableHead>
+                  <TableHead className="w-20 text-right">{t.common.actions}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {keys.map((key) => (
+                  <TableRow key={key.id}>
+                    <TableCell className="font-mono text-xs">{key.name}</TableCell>
+                    <TableCell className="hidden text-xs tabular-nums text-muted-foreground sm:table-cell">
+                      {key.upload_count}
+                    </TableCell>
+                    <TableCell className="hidden text-xs tabular-nums text-muted-foreground md:table-cell">
+                      {formatBytes(key.upload_total_bytes)}
+                    </TableCell>
+                    <TableCell className="hidden text-xs text-muted-foreground sm:table-cell">
+                      {key.last_used ? formatDate(key.last_used) : '从未使用'}
+                    </TableCell>
+                    <TableCell className="hidden text-xs text-muted-foreground md:table-cell">
+                      {formatDate(key.created_at)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        className="text-muted-foreground hover:text-destructive"
+                        onClick={() => setDeletingId(key.id)}
+                        aria-label={t.common.delete}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           </div>
-        </div>
+        </Card>
       )}
 
       {/* Create dialog */}
-      <AnimatePresence>
-        {showCreate && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.18 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4"
-            role="dialog"
-            aria-modal="true"
-          >
-            <div className="absolute inset-0 bg-surface-dark/40 backdrop-blur-sm" onClick={() => !creating && setShowCreate(false)} aria-hidden />
-            <motion.div
-              initial={{ opacity: 0, scale: 0.96, y: 8 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.96 }}
-              transition={{ duration: 0.2, ease: [0.2, 0, 0, 1] }}
-              className="relative w-full max-w-md rounded-md bg-surface-container p-6 shadow-elev-3"
-            >
-              <h2 className="text-title-md text-surface-on">创建 API Key</h2>
-              <input
-                autoFocus
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                placeholder="应用名称，如 BlogA"
-                disabled={creating}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !creating) void handleCreate();
-                  if (e.key === 'Escape' && !creating) setShowCreate(false);
-                }}
-                className="md3-input mt-4"
-              />
-              <div className="mt-5 flex justify-end gap-2">
-                <button type="button" className="md3-btn-text" onClick={() => setShowCreate(false)} disabled={creating}>
-                  {t.common.cancel}
-                </button>
-                <button type="button" className="md3-btn-filled" disabled={creating || !newName.trim()} onClick={() => void handleCreate()}>
-                  {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                  创建
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <Dialog
+        open={showCreate}
+        onOpenChange={(next) => {
+          if (!next && !creating) setShowCreate(false);
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>创建 API Key</DialogTitle>
+          </DialogHeader>
+          <Input
+            autoFocus
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            placeholder="应用名称，如 BlogA"
+            disabled={creating}
+            onKeyDown={(e) => {
+              if (e.nativeEvent.isComposing || e.keyCode === 229) return;
+              if (e.key === 'Enter' && !creating) void handleCreate();
+            }}
+          />
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setShowCreate(false)} disabled={creating}>
+              {t.common.cancel}
+            </Button>
+            <Button disabled={creating || !newName.trim()} onClick={() => void handleCreate()}>
+              {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              创建
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Raw token display */}
-      <AnimatePresence>
-        {rawToken && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.18 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4"
-            role="dialog"
-            aria-modal="true"
-          >
-            <div className="absolute inset-0 bg-surface-dark/40 backdrop-blur-sm" onClick={() => setRawToken(null)} aria-hidden />
-            <motion.div
-              initial={{ opacity: 0, scale: 0.96, y: 8 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.96 }}
-              transition={{ duration: 0.2, ease: [0.2, 0, 0, 1] }}
-              className="relative w-full max-w-md rounded-md bg-surface-container p-6 shadow-elev-3"
+      <Dialog
+        open={rawToken !== null}
+        onOpenChange={(next) => {
+          if (!next) setRawToken(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>API Key 已创建</DialogTitle>
+            <DialogDescription>请立即复制并妥善保管，此 Key 仅显示一次</DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-md border border-input bg-muted/40 px-3 py-2 sm:flex-nowrap">
+            <code className="flex-1 break-all font-mono text-xs text-primary">{rawToken}</code>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="shrink-0"
+              onClick={() => void handleCopyRawToken()}
             >
-              <h2 className="text-title-md text-surface-on">API Key 已创建</h2>
-              <p className="mt-2 text-body-sm text-surface-on/60">请立即复制并妥善保管，此 Key 仅显示一次</p>
-              <div className="md3-input mt-4 flex flex-wrap items-center gap-x-2 gap-y-1 sm:flex-nowrap">
-                <code className="flex-1 break-all font-mono text-body-sm text-primary">{rawToken}</code>
-                <button
-                  type="button"
-                  className="md3-btn-text shrink-0"
-                  onClick={() => void handleCopyRawToken()}
-                >
-                  {t.common.copy}
-                </button>
-              </div>
-              <div className="mt-5 flex justify-end">
-                <button type="button" className="md3-btn-filled" onClick={() => setRawToken(null)}>
-                  {t.common.close}
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+              {t.common.copy}
+            </Button>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setRawToken(null)}>{t.common.close}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <ConfirmDialog
         open={deletingId !== null}

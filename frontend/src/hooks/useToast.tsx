@@ -1,7 +1,6 @@
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
-import { CheckCircle2, AlertTriangle, Info, X, XCircle } from 'lucide-react';
-import { t } from '@/i18n/strings';
+import { createContext, useContext, useMemo, type ReactNode } from 'react';
+import { toast, Toaster } from 'sonner';
+import { CheckCircle2, AlertTriangle, Info, XCircle } from 'lucide-react';
 
 export type ToastVariant = 'success' | 'error' | 'warning' | 'info';
 
@@ -33,111 +32,60 @@ export function useToast(): ToastApi {
 
 const DEFAULT_DURATION = 3000;
 
-let nextId = 1;
+const ICONS: Record<ToastVariant, ReactNode> = {
+  success: <CheckCircle2 className="h-4 w-4 text-success" />,
+  error: <XCircle className="h-4 w-4 text-destructive" />,
+  warning: <AlertTriangle className="h-4 w-4 text-tertiary" />,
+  info: <Info className="h-4 w-4 text-primary" />,
+};
+
+function emit(variant: ToastVariant, message: string, duration?: number) {
+  const opts = {
+    duration: duration === 0 ? Number.POSITIVE_INFINITY : (duration ?? (variant === 'error' ? 5000 : DEFAULT_DURATION)),
+    icon: ICONS[variant],
+  };
+  switch (variant) {
+    case 'success':
+      toast.success(message, opts);
+      break;
+    case 'error':
+      toast.error(message, opts);
+      break;
+    case 'warning':
+      toast.warning(message, opts);
+      break;
+    default:
+      toast.info(message, opts);
+  }
+}
 
 export function ToastProvider({ children }: { children: ReactNode }) {
-  const [items, setItems] = useState<ToastItem[]>([]);
-
-  const dismiss = useCallback((id: number) => {
-    setItems((curr) => curr.filter((it) => it.id !== id));
-  }, []);
-
-  const show = useCallback<ToastApi['show']>((message, opts = {}) => {
-    const id = nextId++;
-    const item: ToastItem = {
-      id,
-      message,
-      variant: opts.variant ?? 'info',
-      duration: opts.duration ?? DEFAULT_DURATION,
-    };
-    setItems((curr) => [...curr, item]);
-    if (item.duration > 0) {
-      window.setTimeout(() => dismiss(id), item.duration);
-    }
-  }, [dismiss]);
-
   const api = useMemo<ToastApi>(
     () => ({
-      show,
-      success: (m, d) => show(m, { variant: 'success', duration: d }),
-      error: (m, d) => show(m, { variant: 'error', duration: d ?? 5000 }),
-      warning: (m, d) => show(m, { variant: 'warning', duration: d }),
-      info: (m, d) => show(m, { variant: 'info', duration: d }),
-      dismiss,
+      show: (message, opts = {}) => emit(opts.variant ?? 'info', message, opts.duration),
+      success: (m, d) => emit('success', m, d),
+      error: (m, d) => emit('error', m, d),
+      warning: (m, d) => emit('warning', m, d),
+      info: (m, d) => emit('info', m, d),
+      dismiss: (id: number) => toast.dismiss(id),
     }),
-    [show, dismiss],
+    [],
   );
 
   return (
     <ToastContext.Provider value={api}>
       {children}
-      <ToastViewport items={items} onDismiss={dismiss} />
+      <Toaster
+        position="bottom-center"
+        toastOptions={{
+          classNames: {
+            toast:
+              'group rounded-xl border border-border bg-card text-card-foreground shadow-lg',
+            title: 'text-sm text-foreground',
+            description: 'text-xs text-muted-foreground',
+          },
+        }}
+      />
     </ToastContext.Provider>
   );
-}
-
-function ToastViewport({
-  items,
-  onDismiss,
-}: {
-  items: ToastItem[];
-  onDismiss: (id: number) => void;
-}) {
-  return (
-    <div
-      className="pointer-events-none fixed inset-x-0 bottom-6 z-50 flex flex-col items-center gap-2 px-4 sm:bottom-8"
-      aria-live="polite"
-      aria-atomic="true"
-    >
-      <AnimatePresence initial={false}>
-        {items.map((it) => (
-          <motion.div
-            key={it.id}
-            layout
-            initial={{ opacity: 0, y: 20, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 12, scale: 0.95 }}
-            transition={{ duration: 0.22, ease: [0.2, 0, 0, 1] }}
-            className={[
-              'pointer-events-auto flex w-full max-w-sm items-start gap-3 rounded-md px-4 py-3 shadow-elev-3',
-              TONE[it.variant],
-            ].join(' ')}
-            role="status"
-          >
-            <Icon variant={it.variant} />
-            <p className="flex-1 text-body-md text-surface-on">{it.message}</p>
-            <button
-              type="button"
-              onClick={() => onDismiss(it.id)}
-              className="-mr-1 -mt-1 rounded-full p-1 text-surface-on/60 transition-colors duration-md3-short2 ease-md3-standard hover:bg-surface-on/10 hover:text-surface-on"
-              aria-label={t.common.close}
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </motion.div>
-        ))}
-      </AnimatePresence>
-    </div>
-  );
-}
-
-const TONE: Record<ToastVariant, string> = {
-  success: 'bg-success-container text-success-on-container',
-  error: 'bg-error-container text-error-on-container',
-  warning: 'bg-tertiary-container text-tertiary-on-container',
-  info: 'bg-primary-container text-primary-on-container',
-};
-
-function Icon({ variant }: { variant: ToastVariant }) {
-  const cls = 'h-5 w-5 shrink-0';
-  switch (variant) {
-    case 'success':
-      return <CheckCircle2 className={`${cls} text-success`} />;
-    case 'error':
-      return <XCircle className={`${cls} text-error`} />;
-    case 'warning':
-      return <AlertTriangle className={`${cls} text-tertiary`} />;
-    default:
-      return <Info className={`${cls} text-primary`} />;
-  }
 }

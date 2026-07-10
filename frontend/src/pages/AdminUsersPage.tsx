@@ -1,10 +1,37 @@
 import { useCallback, useEffect, useState } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
 import { Loader2, Plus, Pencil, Trash2, XCircle } from 'lucide-react';
 import { fetchUsers, createUser, updateUser, deleteUser } from '@api/admin';
 import type { AdminUser } from '@api/types';
 import { useToast } from '@hooks/useToast';
 import ConfirmDialog from '@components/ConfirmDialog';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { t } from '@/i18n/strings';
 import { formatDate } from '@/utils/format';
 
@@ -109,173 +136,156 @@ export default function AdminUsersPage() {
     <div>
       <header className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:mb-8">
         <div>
-          <h2 className="text-title-md text-surface-on sm:text-headline-sm">{t.users.title}</h2>
-          <p className="mt-0.5 text-body-sm text-surface-on/60">{t.users.subtitle}</p>
+          <h2 className="text-lg font-semibold text-foreground sm:text-xl">{t.users.title}</h2>
+          <p className="mt-0.5 text-sm text-muted-foreground">{t.users.subtitle}</p>
         </div>
-        <button type="button" className="md3-btn-filled" onClick={openCreate}>
+        <Button onClick={openCreate}>
           <Plus className="h-4 w-4" />
           {t.users.create}
-        </button>
+        </Button>
       </header>
 
       {error ? (
-        <div className="md3-card-filled flex flex-col items-center gap-3 px-6 py-12 text-error">
+        <Card className="flex flex-col items-center gap-3 px-6 py-12 text-destructive">
           <XCircle className="h-8 w-8" />
           <p>{error}</p>
-          <button type="button" className="md3-btn-filled" onClick={load}>
-            {t.common.retry}
-          </button>
-        </div>
+          <Button onClick={load}>{t.common.retry}</Button>
+        </Card>
       ) : loading ? (
-        <div className="flex items-center justify-center gap-2 py-20 text-body-md text-surface-on/60">
-          <Loader2 className="h-5 w-5 animate-spin" />
-          {t.common.loading}
-        </div>
+        <Card className="flex flex-col gap-3 p-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-3">
+              <Skeleton className="h-4 w-1/4" />
+              <Skeleton className="h-4 w-16" />
+              <Skeleton className="ml-auto h-8 w-20" />
+            </div>
+          ))}
+        </Card>
       ) : users.length === 0 ? (
-        <div className="md3-card-filled px-6 py-20 text-center text-body-md text-surface-on/60">
+        <Card className="px-6 py-20 text-center text-sm text-muted-foreground">
           {t.common.noData}
-        </div>
+        </Card>
       ) : (
-        <div className="md3-card overflow-hidden">
+        <Card className="overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[500px] text-left text-body-md">
-              <thead className="bg-surface-container-high text-label-md uppercase tracking-wide text-surface-on/60">
-                <tr>
-                  <th className="px-4 py-2">{t.users.username}</th>
-                  <th className="hidden w-24 px-4 py-2 sm:table-cell">{t.users.role}</th>
-                  <th className="hidden w-36 px-4 py-2 md:table-cell">{t.users.createdAt}</th>
-                  <th className="w-24 px-4 py-2 text-right">{t.common.actions}</th>
-                </tr>
-              </thead>
-              <tbody>
-                <AnimatePresence initial={false}>
-                  {users.map((user) => (
-                    <motion.tr
-                      key={user.id}
-                      layout
-                      initial={{ opacity: 0, y: 4 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0 }}
-                      className="border-t border-outline-variant/50 hover:bg-surface-container-low"
-                    >
-                      <td className="px-4 py-2 font-mono text-body-sm">{user.username}</td>
-                      <td className="hidden px-4 py-2 sm:table-cell">
-                        <span className={`inline-flex rounded-full px-2.5 py-0.5 text-label-md ${user.role === 'admin' ? 'bg-primary-container text-primary-on-container' : 'bg-surface-container-high text-surface-on/70'}`}>
-                          {roleLabel(user.role)}
-                        </span>
-                      </td>
-                      <td className="hidden px-4 py-2 text-body-sm text-surface-on/70 md:table-cell">
-                        {formatDate(user.created_at)}
-                      </td>
-                      <td className="px-4 py-2 text-right">
-                        <div className="inline-flex gap-1">
-                          <button
-                            type="button"
-                            className="rounded-full p-2 text-surface-on/60 transition-colors hover:bg-primary/10 hover:text-primary"
-                            onClick={() => openEdit(user)}
-                            aria-label={t.users.edit}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </button>
-                          <button
-                            type="button"
-                            className="rounded-full p-2 text-surface-on/60 transition-colors hover:bg-error/10 hover:text-error"
-                            onClick={() => setDeletingId(user.id)}
-                            aria-label={t.users.delete}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </motion.tr>
-                  ))}
-                </AnimatePresence>
-              </tbody>
-            </table>
+            <Table className="min-w-[500px]">
+              <TableHeader>
+                <TableRow className="hover:bg-transparent">
+                  <TableHead>{t.users.username}</TableHead>
+                  <TableHead className="hidden w-24 sm:table-cell">{t.users.role}</TableHead>
+                  <TableHead className="hidden w-36 md:table-cell">{t.users.createdAt}</TableHead>
+                  <TableHead className="w-24 text-right">{t.common.actions}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {users.map((user) => (
+                  <TableRow key={user.id}>
+                    <TableCell className="font-mono text-xs">{user.username}</TableCell>
+                    <TableCell className="hidden sm:table-cell">
+                      <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
+                        {roleLabel(user.role)}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="hidden text-xs text-muted-foreground md:table-cell">
+                      {formatDate(user.created_at)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="inline-flex gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          onClick={() => openEdit(user)}
+                          aria-label={t.users.edit}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          className="text-muted-foreground hover:text-destructive"
+                          onClick={() => setDeletingId(user.id)}
+                          aria-label={t.users.delete}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           </div>
-        </div>
+        </Card>
       )}
 
       {/* Create / Edit dialog */}
-      <AnimatePresence>
-        {showForm && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.18 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4"
-            role="dialog"
-            aria-modal="true"
-          >
-            <div className="absolute inset-0 bg-surface-dark/40 backdrop-blur-sm" onClick={() => !submitting && setShowForm(false)} aria-hidden />
-            <motion.div
-              initial={{ opacity: 0, scale: 0.96, y: 8 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.96 }}
-              transition={{ duration: 0.2, ease: [0.2, 0, 0, 1] }}
-              className="relative w-full max-w-md rounded-md bg-surface-container p-6 shadow-elev-3"
+      <Dialog
+        open={showForm}
+        onOpenChange={(next) => {
+          if (!next && !submitting) setShowForm(false);
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{editingId ? t.users.editTitle : t.users.create}</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="user-form-username">{t.users.usernameLabel}</Label>
+              <Input
+                id="user-form-username"
+                autoFocus
+                value={form.username}
+                onChange={(e) => setForm((f) => ({ ...f, username: e.target.value }))}
+                placeholder={t.users.usernamePlaceholder}
+                disabled={submitting}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="user-form-password">{t.users.passwordLabel}</Label>
+              <Input
+                id="user-form-password"
+                type="password"
+                value={form.password}
+                onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
+                placeholder={editingId ? t.users.editPasswordHint : t.users.passwordPlaceholder}
+                disabled={submitting}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>{t.users.roleLabel}</Label>
+              <Select
+                value={form.role}
+                onValueChange={(value) => setForm((f) => ({ ...f, role: value }))}
+                disabled={submitting}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {ROLE_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setShowForm(false)} disabled={submitting}>
+              {t.common.cancel}
+            </Button>
+            <Button
+              disabled={submitting || !form.username.trim() || (!editingId && form.password.length < 6)}
+              onClick={() => void handleSubmit()}
             >
-              <h2 className="text-title-md text-surface-on">
-                {editingId ? t.users.editTitle : t.users.create}
-              </h2>
-
-              <div className="mt-4 space-y-4">
-                <div>
-                  <label className="mb-1.5 block text-label-md text-surface-on/70">{t.users.usernameLabel}</label>
-                  <input
-                    autoFocus
-                    value={form.username}
-                    onChange={(e) => setForm((f) => ({ ...f, username: e.target.value }))}
-                    placeholder={t.users.usernamePlaceholder}
-                    disabled={submitting}
-                    className="md3-input"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1.5 block text-label-md text-surface-on/70">{t.users.passwordLabel}</label>
-                  <input
-                    type="password"
-                    value={form.password}
-                    onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
-                    placeholder={editingId ? t.users.editPasswordHint : t.users.passwordPlaceholder}
-                    disabled={submitting}
-                    className="md3-input"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1.5 block text-label-md text-surface-on/70">{t.users.roleLabel}</label>
-                  <select
-                    value={form.role}
-                    onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))}
-                    disabled={submitting}
-                    className="md3-input"
-                  >
-                    {ROLE_OPTIONS.map((opt) => (
-                      <option key={opt.value} value={opt.value}>{opt.label}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div className="mt-5 flex justify-end gap-2">
-                <button type="button" className="md3-btn-text" onClick={() => setShowForm(false)} disabled={submitting}>
-                  {t.common.cancel}
-                </button>
-                <button
-                  type="button"
-                  className="md3-btn-filled"
-                  disabled={submitting || !form.username.trim() || (!editingId && form.password.length < 6)}
-                  onClick={() => void handleSubmit()}
-                >
-                  {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                  {editingId ? t.users.edit : t.users.create}
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+              {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              {editingId ? t.users.edit : t.users.create}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <ConfirmDialog
         open={deletingId !== null}
