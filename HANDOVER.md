@@ -5,19 +5,8 @@ Go + React 图床系统。
 数据库：SQLite（modernc.org/sqlite，纯 Go 实现，无 CGO 依赖）  
 前端：React 19 + Vite 8 + TypeScript 6 + Tailwind CSS + Material Design 3
 
-## 部署信息
+### 目录结构
 
-### 服务器
-- **IP**：`82.47.33.211`
-- **OS**：Debian 13
-- **SSH**：`ssh -i ~/.ssh/mushan -o IdentitiesOnly=yes root@82.47.33.211`
-- **nginx**：多处站点共存（见 `/etc/nginx/sites-enabled/`）
-
-### 本地开发机
-- **Mac**：`/Users/fuquanbin/Documents/ggto/imago/`
-- **代码仓库**：`https://github.com/msRainProject/imago.git`
-
-### 项目目录结构
 ```
 imago/
 ├── backend/             ← Go 后端
@@ -35,72 +24,27 @@ imago/
 │   │   └── web/
 │   └── migrations/
 ├── frontend/            ← React 前端
-│   ├── src/
-│   │   ├── pages/
-│   │   ├── api/
-│   │   ├── components/
-│   │   ├── hooks/
-│   │   ├── i18n/
-│   │   └── utils/
-│   └── ...
-├── build.sh
-└── scripts/
+│   └── src/
+│       ├── pages/
+│       ├── api/
+│       ├── components/
+│       ├── hooks/
+│       ├── i18n/
+│       └── utils/
+├── scripts/             ← 部署脚本
+└── build.sh             ← 统一构建脚本
 ```
-
----
-
-## nginx 配置
-
-### images.ggto.de
-```
-listen 443 ssl;
-server_name images.ggto.de;
-```
-- 反代到 `http://127.0.0.1:8090`
-- 证书：`/etc/nginx/ssl/ggto.crt`、`/etc/nginx/ssl/ggto.key`
-- 站点配置：`/etc/nginx/sites-available/images.ggto.de`
-- 当前链路：Cloudflare → nginx `:443` → `hill-images.service` `:8090`
-
----
-
-## systemd 服务
-
-### hill-images
-```
-systemctl status hill-images
-```
-- 服务文件：`/etc/systemd/system/hill-images.service`
-- WorkingDirectory：`/home/www/hill-images`
-- 二进制：`/home/www/hill-images/hill-images`
-- 配置：`/home/www/hill-images/config.yaml`
-- 数据库：`/home/www/hill-images/data/hill.db`
-- 图片目录：`/home/www/hill-images/image`
-- 缩略图目录：`/home/www/hill-images/cache/thumb`
-- 日志：`journalctl -u hill-images -f`
-- 启动命令：`systemctl restart hill-images`
-- 运行用户：`www-data`
-
-### 图片处理依赖
-
-```bash
-rsync -av -e "ssh -i ~/.ssh/mushan -o IdentitiesOnly=yes" scripts/install-media-deps.sh root@82.47.33.211:/home/www/hill-images/install-media-deps.sh
-ssh -i ~/.ssh/mushan -o IdentitiesOnly=yes root@82.47.33.211 'bash /home/www/hill-images/install-media-deps.sh'
-```
-
-Go 服务启动时会自检这些命令并写入日志；也可以通过 `/api/health` 查看 `media_dependencies`。
 
 ---
 
 ## 存储配置
-
-配置在 `/home/www/hill-images/config.yaml`：
 
 ```yaml
 storage:
   driver: "local"   # local / r2 / s3
   local:
     path_template: "{year}/{month}"
-    public_base_url: "https://images.ggto.de"
+    public_base_url: "https://images.example.com"
 ```
 
 ### 本地文件命名规则
@@ -119,25 +63,7 @@ storage:
 
 ## API 端点
 
-所有 API 以 `/api/` 为前缀，通过 nginx 代理到 Go 后端 `127.0.0.1:8090`。
-
-完整接口列表见 [API.md](API.md)。
-
----
-
-## 默认管理员账户
-- 用户名：`admin`
-- 密码：`admin123`
-
----
-
-## WebAuthn / Passkey 说明
-
-- RP ID 当前配置为 `images.ggto.de`
-- RP Origin：`https://images.ggto.de`
-- 如果换域名访问，必须更新这两个值并重启 `hill-images`
-- go-webauthn 库版本：`4.7.9`
-- 已知问题：后端 `CredentialCreation` 和 `CredentialAssertion` 序列化时有多一层 `publicKey` 包装，handler 已通过 `.Response` 解包
+所有 API 以 `/api/` 为前缀，完整接口列表见 [API.md](API.md)。
 
 ---
 
@@ -152,10 +78,52 @@ cd backend
 CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o hill-images-linux .
 
 # 部署
-rsync -av -e "ssh -i ~/.ssh/mushan -o IdentitiesOnly=yes" backend/hill-images-linux root@82.47.33.211:/home/www/hill-images/hill-images
-rsync -av -e "ssh -i ~/.ssh/mushan -o IdentitiesOnly=yes" backend/config.yaml root@82.47.33.211:/home/www/hill-images/config.yaml
-ssh -i ~/.ssh/mushan -o IdentitiesOnly=yes root@82.47.33.211 'systemctl restart hill-images'
+rsync -av backend/hill-images-linux user@server:/path/to/deploy/
+rsync -av backend/config.yaml user@server:/path/to/deploy/
+ssh user@server 'systemctl restart hill-images'
 ```
+
+### systemd 服务示例
+
+```
+[Unit]
+Description=Imago Image Hosting
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+WorkingDirectory=/path/to/deploy
+ExecStart=/path/to/deploy/hill-images
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+```
+
+### 图片处理依赖
+
+服务需要以下系统工具：
+- `ffmpeg`：通用转码、压缩
+- `heif-convert`（Debian 包：`libheif-examples`）：HEIC/HEIF → PNG
+- `dcraw`：DNG/RAW → PPM/PNG
+
+安装脚本见 `scripts/install-media-deps.sh`。
+
+---
+
+## 默认管理员账户
+
+首次启动后第一个注册的用户自动成为管理员。
+
+---
+
+## WebAuthn / Passkey 说明
+
+- RP ID 和 RP Origin 需与访问域名匹配
+- 换域名时必须在管理后台更新这两个值并重启服务
+- go-webauthn 库版本：`4.7.9`
+- 已知问题：后端 `CredentialCreation` 和 `CredentialAssertion` 序列化时有多一层 `publicKey` 包装，handler 已通过 `.Response` 解包
 
 ---
 
