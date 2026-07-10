@@ -1,0 +1,140 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* -------------------------------------------------------------------------- */
+/*  Hill Images — MD3 base layer                                              */
+/*  Tokens are defined in tailwind.config.js; this file applies the light &   */
+/*  dark color-scheme variables consumed by raw CSS.                          */
+/* -------------------------------------------------------------------------- */
+
+:root {
+  color-scheme: light;
+  --hill-build: 20260625.2;
+  --md-sys-color-primary: #6750a4;
+  --md-sys-color-on-primary: #ffffff;
+  --md-sys-color-primary-container: #eaddff;
+  --md-sys-color-on-primary-container: #21005d;
+  --md-sys-color-surface: #fef7ff;
+  --md-sys-color-on-surface: #1d1b20;
+  --md-sys-color-surface-container: #f3edf7;
+  --md-sys-color-outline: #79747e;
+  --md-sys-color-outline-variant: #cac4d0;
+}
+
+.dark {
+  color-scheme: dark;
+  --md-sys-color-primary: #d0bcff;
+  --md-sys-color-on-primary: #381e72;
+  --md-sys-color-primary-container: #4f378b;
+  --md-sys-color-on-primary-container: #eaddff;
+  --md-sys-color-surface: #141218;
+  --md-sys-color-on-surface: #e6e0e9;
+  --md-sys-color-surface-container: #211f26;
+  --md-sys-color-outline: #938f99;
+  --md-sys-color-outline-variant: #49454f;
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-surface text-surface-on font-sans antialiased;
+    font-feature-settings: 'cv11', 'ss01';
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Subtle scrollbar (MD3) */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply rounded-full bg-outline/40;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-outline/60;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  /* Honor user motion preferences */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@layer components {
+  /* MD3 Filled Button (primary) */
+  .md3-btn-filled {
+    @apply inline-flex items-center justify-center gap-2 rounded-full bg-primary px-6 py-2.5 text-label-lg text-primary-on transition-colors duration-md3-short2 ease-md3-standard hover:shadow-md3-1 active:opacity-90 disabled:opacity-40 disabled:pointer-events-none;
+  }
+  .md3-btn-tonal {
+    @apply inline-flex items-center justify-center gap-2 rounded-full bg-primary-container px-6 py-2.5 text-label-lg text-primary-on-container transition-colors duration-md3-short2 ease-md3-standard hover:shadow-md3-1 active:opacity-90 disabled:opacity-40 disabled:pointer-events-none;
+  }
+  .md3-btn-outlined {
+    @apply inline-flex items-center justify-center gap-2 rounded-full border border-outline px-6 py-2.5 text-label-lg text-primary transition-colors duration-md3-short2 ease-md3-standard hover:bg-primary/10 active:bg-primary/10 disabled:opacity-40 disabled:pointer-events-none;
+  }
+  .md3-btn-text {
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-4 py-2 text-label-lg text-primary transition-colors duration-md3-short2 ease-md3-standard hover:bg-primary/10 active:bg-primary/10 disabled:opacity-40 disabled:pointer-events-none;
+  }
+  /* MD3 Filled Button (error) — destructive actions */
+  .md3-btn-danger {
+    @apply inline-flex items-center justify-center gap-2 rounded-full bg-error px-6 py-2.5 text-label-lg text-error-on transition-colors duration-md3-short2 ease-md3-standard hover:shadow-md3-1 active:opacity-90 disabled:opacity-40 disabled:pointer-events-none;
+  }
+
+  /* MD3 Card (elevated) */
+  .md3-card {
+    @apply rounded-md bg-surface-container shadow-elev-1 transition-shadow duration-md3-short2 ease-md3-standard;
+  }
+  .md3-card-elevated {
+    @apply rounded-md bg-surface-container-low shadow-elev-1;
+  }
+  .md3-card-filled {
+    @apply rounded-md bg-surface-container-high;
+  }
+  .md3-card-outlined {
+    @apply rounded-md border border-outline-variant bg-surface;
+  }
+
+  /* MD3 Text Field */
+  .md3-text-field {
+    @apply relative w-full;
+  }
+  .md3-text-field input,
+  .md3-text-field textarea {
+    @apply w-full rounded-xs border border-outline-variant bg-surface px-4 py-3 text-body-lg text-surface-on outline-none transition-colors duration-md3-short2 ease-md3-standard placeholder:text-outline focus:border-primary focus:ring-2 focus:ring-primary/30;
+  }
+
+  .md3-input {
+    @apply w-full min-h-[52px] rounded-xs border border-outline-variant bg-surface px-4 py-3 text-[16px] leading-6 text-surface-on outline-none transition-colors duration-md3-short2 ease-md3-standard placeholder:text-surface-on/45 focus:border-primary focus:ring-2 focus:ring-primary/30;
+  }
+  .md3-input-leading-icon {
+    @apply pl-16;
+  }
+  .md3-input-icon-wrap {
+    @apply pointer-events-none absolute inset-y-0 left-0 flex w-14 items-center justify-center text-surface-on/45;
+  }
+  .md3-input-affix-wrap {
+    @apply relative w-full;
+  }
+
+  /* MD3 Chip */
+  .md3-chip {
+    @apply inline-flex items-center gap-2 rounded-sm border border-outline-variant px-3 py-1.5 text-label-lg text-surface-on transition-colors duration-md3-short2 ease-md3-standard hover:bg-primary/10;
+  }
+  .md3-chip-selected {
+    @apply border-transparent bg-secondary-container text-secondary-on-container;
+  }
+}

@@ -1,0 +1,50 @@
+# ============
+# Go backend
+# ============
+backend/hill-api
+backend/hill-api-debug
+backend/hill-api-linux
+backend/hill-images-linux
+backend/hill-images
+backend/tmp/
+backend/hill.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Embedded frontend build (regenerated via build.sh)
+backend/internal/web/dist/
+
+# Config with secrets (keep template in repo)
+backend/config.yaml
+
+# ============
+# Frontend
+# ============
+frontend/node_modules/
+frontend/dist/
+frontend/dist-ssr/
+frontend/.env.local
+
+# ============
+# OS
+# ============
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+*.log
+
+# ============
+# IDE
+# ============
+.idea/
+.vscode/
+*.sublime-*
+
+# ============
+# Agent workdirs
+# ============
+.omo/
+.cortexkit/
