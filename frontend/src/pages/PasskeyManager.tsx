@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
 import { CheckCircle2, Fingerprint, Loader2, Plus, ShieldOff, Trash2, XCircle } from 'lucide-react';
 import {
   deletePasskeyCredential,
@@ -13,6 +12,19 @@ import { useToast } from '@hooks/useToast';
 import ConfirmDialog from '@components/ConfirmDialog';
 import { format, t } from '@/i18n/strings';
 import { base64urlToBytes } from '@/utils/webauthn';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { cn } from '@/lib/utils';
 
 type Status = 'idle' | 'working';
 
@@ -188,14 +200,12 @@ export default function PasskeyManager() {
 
   return (
     <div>
-      <header className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:mb-8">
+      <header className="mb-6 flex flex-col gap-3 sm:mb-8 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-title-md text-surface-on sm:text-headline-sm">{t.passkey.title}</h2>
-          <p className="mt-0.5 text-body-sm text-surface-on/60">{t.passkey.subtitle}</p>
+          <h2 className="text-lg font-semibold text-foreground sm:text-xl">{t.passkey.title}</h2>
+          <p className="mt-0.5 text-sm text-muted-foreground">{t.passkey.subtitle}</p>
         </div>
-        <button
-          type="button"
-          className="md3-btn-filled"
+        <Button
           onClick={openNamingDialog}
           disabled={!webAuthnSupported || bindStatus === 'working'}
         >
@@ -210,11 +220,11 @@ export default function PasskeyManager() {
               {t.passkey.bind}
             </>
           )}
-        </button>
+        </Button>
       </header>
 
       {!webAuthnSupported && (
-        <div className="md3-card-filled mb-4 flex items-start gap-3 border border-tertiary/30 bg-tertiary-container px-4 py-3 text-body-sm text-tertiary-on-container">
+        <div className="mb-4 flex items-start gap-3 rounded-lg border border-tertiary/30 bg-tertiary/10 px-4 py-3 text-sm text-tertiary">
           <Fingerprint className="mt-0.5 h-4 w-4 shrink-0" />
           <p>{t.passkey.unsupported}</p>
         </div>
@@ -227,80 +237,74 @@ export default function PasskeyManager() {
       />
 
       {error ? (
-        <div className="md3-card-filled mt-4 flex flex-col items-center gap-3 px-6 py-12 text-error">
-          <XCircle className="h-8 w-8" />
-          <p>{error}</p>
-          <button type="button" className="md3-btn-filled" onClick={() => void load()}>
-            {t.common.retry}
-          </button>
-        </div>
+        <Card className="mt-4">
+          <CardContent className="flex flex-col items-center gap-3 px-6 py-12 text-destructive">
+            <XCircle className="h-8 w-8" />
+            <p>{error}</p>
+            <Button onClick={() => void load()}>{t.common.retry}</Button>
+          </CardContent>
+        </Card>
       ) : sortedCredentials === null ? (
-        <div className="mt-4 flex items-center justify-center gap-2 py-20 text-body-md text-surface-on/60">
+        <div className="mt-4 flex items-center justify-center gap-2 py-20 text-sm text-muted-foreground">
           <Loader2 className="h-5 w-5 animate-spin" />
           <span>{t.common.loading}</span>
         </div>
       ) : sortedCredentials.length === 0 ? (
-        <div className="md3-card mt-4 px-6 py-16 text-center">
-          <Fingerprint className="mx-auto mb-3 h-10 w-10 text-surface-on/30" />
-          <p className="text-body-md text-surface-on/70">{t.passkey.emptyTitle}</p>
-          <p className="mt-1 text-body-sm text-surface-on/50">{t.passkey.emptyDesc}</p>
-        </div>
+        <Card className="mt-4">
+          <CardContent className="px-6 py-16 text-center">
+            <Fingerprint className="mx-auto mb-3 h-10 w-10 text-muted-foreground/40" />
+            <p className="text-sm text-foreground">{t.passkey.emptyTitle}</p>
+            <p className="mt-1 text-sm text-muted-foreground">{t.passkey.emptyDesc}</p>
+          </CardContent>
+        </Card>
       ) : (
-        <div className="md3-card mt-4 overflow-hidden">
+        <Card className="mt-4 overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[480px] text-left text-body-md">
-              <thead className="bg-surface-container-high text-label-md uppercase tracking-wide text-surface-on/60">
-                <tr>
-                  <th className="px-4 py-2">{t.passkey.colName}</th>
-                  <th className="hidden w-56 px-4 py-2 md:table-cell">{t.passkey.colId}</th>
-                  <th className="w-40 px-4 py-2">{t.passkey.colBoundAt}</th>
-                  <th className="w-40 px-4 py-2">{t.passkey.colLastUsed}</th>
-                  <th className="w-20 px-4 py-2 text-right">{t.common.actions}</th>
-                </tr>
-              </thead>
-              <tbody>
-                <AnimatePresence initial={false}>
-                  {sortedCredentials.map((cred) => (
-                    <motion.tr
-                      key={cred.credential_id}
-                      layout
-                      initial={{ opacity: 0, y: 4 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0 }}
-                      className="border-t border-outline-variant/50 hover:bg-surface-container-low"
-                    >
-                      <td className="px-4 py-2">
-                        <span className="inline-flex items-center gap-2">
-                          <Fingerprint className="h-4 w-4 text-primary" />
-                          <span className="font-mono text-body-sm">{cred.friendly_name}</span>
-                        </span>
-                      </td>
-                      <td className="hidden px-4 py-2 font-mono text-body-sm text-surface-on/60 md:table-cell">
-                        <span className="break-all">{cred.credential_id}</span>
-                      </td>
-                      <td className="px-4 py-2 text-body-sm text-surface-on/70">
-                        {formatBindingTime(cred.created_at)}
-                      </td>
-                      <td className="px-4 py-2 text-body-sm text-surface-on/70">
-                        {formatLastUsedTime(cred.last_used_at)}
-                      </td>
-                      <td className="px-4 py-2 text-right">
-                        <button
-                          type="button"
-                          className="rounded-full p-2 text-surface-on/60 transition-colors hover:bg-error/10 hover:text-error"
-                          onClick={() => setDeletingId(cred.credential_id)}
-                          aria-label={t.passkey.delete}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </td>
-                    </motion.tr>
-                  ))}
-                </AnimatePresence>
-              </tbody>
-            </table>
+            <Table className="min-w-[480px]">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t.passkey.colName}</TableHead>
+                  <TableHead className="hidden w-56 md:table-cell">{t.passkey.colId}</TableHead>
+                  <TableHead className="w-40">{t.passkey.colBoundAt}</TableHead>
+                  <TableHead className="w-40">{t.passkey.colLastUsed}</TableHead>
+                  <TableHead className="w-20 text-right">{t.common.actions}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {sortedCredentials.map((cred) => (
+                  <TableRow key={cred.credential_id}>
+                    <TableCell>
+                      <span className="inline-flex items-center gap-2">
+                        <Fingerprint className="h-4 w-4 text-primary" />
+                        <span className="font-mono text-sm">{cred.friendly_name}</span>
+                      </span>
+                    </TableCell>
+                    <TableCell className="hidden font-mono text-sm text-muted-foreground md:table-cell">
+                      <span className="break-all">{cred.credential_id}</span>
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {formatBindingTime(cred.created_at)}
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {formatLastUsedTime(cred.last_used_at)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                        onClick={() => setDeletingId(cred.credential_id)}
+                        aria-label={t.passkey.delete}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           </div>
-        </div>
+        </Card>
       )}
 
       <ConfirmDialog
@@ -316,14 +320,13 @@ export default function PasskeyManager() {
         busy={bindStatus === 'working'}
         confirmDisabled={!draftName.trim()}
       >
-        <div className="space-y-2">
-          <label htmlFor="passkey-friendly-name" className="block text-label-md text-surface-on/70">
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="passkey-friendly-name" className="text-muted-foreground">
             {t.passkey.colName}
-          </label>
-          <input
+          </Label>
+          <Input
             id="passkey-friendly-name"
             type="text"
-            className="md3-input"
             value={draftName}
             onChange={(e) => setDraftName(e.target.value)}
             placeholder={t.passkey.promptNameDefault}
@@ -358,8 +361,8 @@ function SecurityCenterPanel({
 }) {
   const Icon = isBound ? CheckCircle2 : ShieldOff;
   const tone = isBound
-    ? 'border-primary/40 bg-primary-container/60 text-primary-on-container'
-    : 'border-tertiary/40 bg-tertiary-container/60 text-tertiary-on-container';
+    ? 'border-primary/30 bg-primary/5 text-foreground'
+    : 'border-tertiary/30 bg-tertiary/5 text-foreground';
   const countText =
     count === 1
       ? t.passkey.countOne
@@ -373,31 +376,34 @@ function SecurityCenterPanel({
   return (
     <section
       aria-live="polite"
-      className={`md3-card-filled flex flex-col gap-4 border px-4 py-4 sm:flex-row sm:items-center sm:gap-6 sm:px-5 ${tone}`}
+      className={cn(
+        'flex flex-col gap-4 rounded-lg border px-4 py-4 sm:flex-row sm:items-center sm:gap-6 sm:px-5',
+        tone,
+      )}
     >
       <div className="flex items-center gap-3 sm:flex-col sm:items-start sm:gap-2">
-        <Icon className="h-6 w-6 shrink-0" aria-hidden />
+        <Icon className={cn('h-6 w-6 shrink-0', isBound ? 'text-success' : 'text-tertiary')} aria-hidden />
         <div>
-          <div className="text-label-lg">
+          <div className="text-sm font-medium">
             {isBound ? t.passkey.statusBound : t.passkey.statusUnbound}
           </div>
-          <div className="text-body-sm opacity-80">
+          <div className="text-sm text-muted-foreground">
             {isBound ? t.passkey.statusBoundDesc : t.passkey.statusUnboundDesc}
           </div>
         </div>
       </div>
       <dl className="grid w-full grid-cols-2 gap-3 sm:ml-auto sm:max-w-xs sm:gap-2">
         <div>
-          <dt className="text-label-sm uppercase tracking-wide opacity-70">
+          <dt className="text-xs uppercase tracking-wide text-muted-foreground">
             {t.passkey.lastBindingLabel}
           </dt>
-          <dd className="text-body-md">{latestText}</dd>
+          <dd className="text-sm">{latestText}</dd>
         </div>
         <div>
-          <dt className="text-label-sm uppercase tracking-wide opacity-70">
+          <dt className="text-xs uppercase tracking-wide text-muted-foreground">
             {t.passkey.countLabel}
           </dt>
-          <dd className="text-body-md">{countText}</dd>
+          <dd className="text-sm">{countText}</dd>
         </div>
       </dl>
     </section>

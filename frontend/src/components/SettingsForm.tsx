@@ -1,5 +1,17 @@
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import { Loader2, Save, XCircle, KeyRound } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { fetchConfig, updateConfig } from '@api/admin';
 import { useToast } from '@hooks/useToast';
 import { t } from '@/i18n/strings';
@@ -131,7 +143,7 @@ export function SettingsForm({
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center gap-2 py-20 text-body-md text-surface-on/60">
+      <div className="flex items-center justify-center gap-2 py-20 text-sm text-muted-foreground">
         <Loader2 className="h-5 w-5 animate-spin" />
         <span>{i18n.loading}</span>
       </div>
@@ -140,13 +152,11 @@ export function SettingsForm({
 
   if (error) {
     return (
-      <div className="md3-card flex flex-col items-center gap-3 px-6 py-12 text-error">
+      <Card className="flex flex-col items-center gap-3 px-6 py-12 text-destructive">
         <XCircle className="h-8 w-8" />
         <p>{error}</p>
-        <button type="button" className="md3-btn-filled" onClick={load}>
-          {t.common.retry}
-        </button>
-      </div>
+        <Button onClick={load}>{t.common.retry}</Button>
+      </Card>
     );
   }
 
@@ -156,19 +166,19 @@ export function SettingsForm({
         const keys = grouped[g.key] ?? [];
         if (keys.length === 0) return null;
         return (
-          <section key={g.key} className="md3-card overflow-hidden">
-            <header className="flex items-start gap-3 border-b border-outline-variant/40 bg-surface-container-lowest/40 px-5 py-4">
-              <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary-container text-primary-on-container">
+          <Card key={g.key} className="overflow-hidden">
+            <header className="flex items-start gap-3 border-b border-border/60 bg-muted/40 px-5 py-4">
+              <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                 {g.icon ?? <KeyRound className="h-4 w-4" />}
               </span>
               <div>
-                <h2 className="text-title-sm text-surface-on">{g.title}</h2>
+                <h2 className="text-sm font-semibold text-foreground">{g.title}</h2>
                 {g.description && (
-                  <p className="mt-0.5 text-body-sm text-surface-on/60">{g.description}</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">{g.description}</p>
                 )}
               </div>
             </header>
-            <div className="divide-y divide-outline-variant/40">
+            <div className="divide-y divide-border/60">
               {keys.map((key) => (
                 <Field
                   key={key}
@@ -198,27 +208,22 @@ export function SettingsForm({
                 />
               ))}
             </div>
-          </section>
+          </Card>
         );
       })}
 
       <div className="flex items-center justify-between gap-3 pt-2">
-        <p className="text-body-sm text-surface-on/60">
+        <p className="text-sm text-muted-foreground">
           {dirty ? i18n.unsavedHint : i18n.editHint}
         </p>
         <div className="flex gap-2">
-          <button type="button" className="md3-btn-text" onClick={handleReset} disabled={saving || !dirty}>
+          <Button variant="ghost" onClick={handleReset} disabled={saving || !dirty}>
             {i18n.reset}
-          </button>
-          <button
-            type="button"
-            className="md3-btn-filled"
-            onClick={() => void handleSave()}
-            disabled={saving || !dirty}
-          >
+          </Button>
+          <Button onClick={() => void handleSave()} disabled={saving || !dirty}>
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
             {i18n.save}
-          </button>
+          </Button>
         </div>
       </div>
     </div>
@@ -263,39 +268,37 @@ function Field({
   return (
     <label className="block px-5 py-3.5">
       <div className="flex items-baseline justify-between gap-3">
-        <span className="text-label-lg text-surface-on">{label}</span>
-        {changed && (
-          <span className="rounded-full bg-tertiary-container px-2 py-0.5 text-label-sm text-tertiary-on-container">
-            已修改
-          </span>
-        )}
+        <span className="text-sm font-medium text-foreground">{label}</span>
+        {changed && <Badge variant="outline">已修改</Badge>}
       </div>
       <div className="mt-1.5">
         {isDriver ? (
-          <select
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            className="md3-input"
-          >
-            {Object.entries(t.settings.driverOptions).map(([k, v]) => (
-              <option key={k} value={k}>{v}</option>
-            ))}
-          </select>
+          <Select value={value} onValueChange={onChange}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {Object.entries(t.settings.driverOptions).map(([k, v]) => (
+                <SelectItem key={k} value={k}>{v}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         ) : isBoolean ? (
-          <ToggleSwitch
+          <Switch
             checked={normalizeBoolValue(value) === 'true'}
-            onChange={(checked) => onChange(checked ? 'true' : 'false')}
+            onCheckedChange={(checked) => onChange(checked ? 'true' : 'false')}
           />
         ) : selectOptions ? (
-          <select
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            className="md3-input"
-          >
-            {Object.entries(selectOptions).map(([k, v]) => (
-              <option key={k} value={k}>{v}</option>
-            ))}
-          </select>
+          <Select value={value} onValueChange={onChange}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {Object.entries(selectOptions).map(([k, v]) => (
+                <SelectItem key={k} value={k}>{v}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         ) : isMegabytes ? (
           <MegabyteInput value={value} onChange={onChange} />
         ) : isNumber ? (
@@ -304,19 +307,15 @@ function Field({
           <SecretInput onReveal={onToggleReveal} />
         ) : isPassword ? (
           <div className="flex gap-2">
-            <input
+            <Input
               type={revealed ? 'text' : 'password'}
               value={value}
               onChange={(e) => onChange(e.target.value)}
-              className="md3-input flex-1"
+              className="flex-1"
             />
-            <button
-              type="button"
-              className="md3-btn-text shrink-0"
-              onClick={onToggleReveal}
-            >
+            <Button type="button" variant="ghost" className="shrink-0" onClick={onToggleReveal}>
               {revealed ? '隐藏' : '显示'}
-            </button>
+            </Button>
           </div>
         ) : isTextarea ? (
           <textarea
@@ -324,19 +323,18 @@ function Field({
             onChange={(e) => onChange(e.target.value)}
             rows={4}
             spellCheck={false}
-            className="md3-input min-h-28 resize-y"
+            className="flex min-h-28 w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
           />
         ) : (
-          <input
+          <Input
             type="text"
             value={value}
             onChange={(e) => onChange(e.target.value)}
-            className="md3-input"
           />
         )}
       </div>
       {t.settings.fieldHelp[fieldKey] && (
-        <p className="mt-1.5 text-body-sm text-surface-on/60">
+        <p className="mt-1.5 text-xs text-muted-foreground">
           {t.settings.fieldHelp[fieldKey]}
         </p>
       )}
@@ -378,7 +376,7 @@ function MegabyteInput({
 
   return (
     <div className="relative">
-      <input
+      <Input
         type="number"
         min="0"
         step="1"
@@ -389,9 +387,9 @@ function MegabyteInput({
           setDisplayValue(next);
           onChange(megabytesToBytesString(next));
         }}
-        className="md3-input pr-14"
+        className="pr-14"
       />
-      <span className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-label-md text-surface-on/60">
+      <span className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-xs text-muted-foreground">
         MB
       </span>
     </div>
@@ -409,30 +407,29 @@ function NumberInput({
 }) {
   if (!suffix) {
     return (
-      <input
+      <Input
         type="number"
         min="0"
         step="1"
         inputMode="numeric"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="md3-input"
       />
     );
   }
 
   return (
     <div className="relative">
-      <input
+      <Input
         type="number"
         min="0"
         step="1"
         inputMode="numeric"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="md3-input pr-14"
+        className="pr-14"
       />
-      <span className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-label-md text-surface-on/60">
+      <span className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-xs text-muted-foreground">
         {suffix}
       </span>
     </div>
@@ -441,49 +438,12 @@ function NumberInput({
 
 function SecretInput({ onReveal }: { onReveal: () => void }) {
   return (
-    <div className="md3-input flex flex-wrap items-center gap-x-2 gap-y-1 sm:flex-nowrap">
-      <span className="font-mono text-body-lg text-surface-on/50">••••••••</span>
-      <span className="text-body-sm text-surface-on/60 sm:truncate">已保存，输入新值以覆盖</span>
-      <button type="button" className="md3-btn-text ml-auto shrink-0" onClick={onReveal}>
+    <div className="flex min-h-10 w-full flex-wrap items-center gap-x-2 gap-y-1 rounded-md border border-input bg-background px-3 py-2 sm:flex-nowrap">
+      <span className="font-mono text-sm text-muted-foreground">••••••••</span>
+      <span className="text-xs text-muted-foreground sm:truncate">已保存，输入新值以覆盖</span>
+      <Button type="button" variant="ghost" size="sm" className="ml-auto shrink-0" onClick={onReveal}>
         修改
-      </button>
+      </Button>
     </div>
-  );
-}
-function ToggleSwitch({
-  checked,
-  onChange,
-}: {
-  checked: boolean;
-  onChange: (checked: boolean) => void;
-}) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      onClick={() => onChange(!checked)}
-      className={`
-        relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full
-        border-2 border-transparent
-        transition-colors duration-200 ease-in-out
-        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2
-        ${checked
-          ? 'bg-primary'
-          : 'bg-surface-on/20'
-        }
-      `}
-    >
-      <span
-        className={`
-          inline-block h-5 w-5
-          transform rounded-full
-          bg-white shadow-sm
-          ring-0
-          transition-transform duration-200 ease-in-out
-          ${checked ? 'translate-x-5' : 'translate-x-0'}
-        `}
-      />
-    </button>
   );
 }

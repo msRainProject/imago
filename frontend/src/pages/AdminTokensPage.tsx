@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
-import { Loader2, Plus, Trash2, XCircle } from 'lucide-react';
+import { Key, Loader2, Plus, Trash2, XCircle } from 'lucide-react';
 import { fetchTokens, createToken, deleteToken } from '@api/admin';
 import type { AdminToken } from '@api/types';
 import { useToast } from '@hooks/useToast';
@@ -8,6 +7,25 @@ import ConfirmDialog from '@components/ConfirmDialog';
 import { t } from '@/i18n/strings';
 import { formatDate } from '@/utils/format';
 import { copyToClipboard } from '@/utils/format';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 
 export default function AdminTokensPage() {
   const toast = useToast();
@@ -75,171 +93,125 @@ export default function AdminTokensPage() {
 
   return (
     <div>
-      <header className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:mb-8">
+      <header className="mb-6 flex flex-col gap-3 sm:mb-8 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-title-md text-surface-on sm:text-headline-sm">{t.tokens.title}</h2>
-          <p className="mt-0.5 text-body-sm text-surface-on/60">{t.tokens.subtitle}</p>
+          <h2 className="text-lg font-semibold text-foreground sm:text-xl">{t.tokens.title}</h2>
+          <p className="mt-0.5 text-sm text-muted-foreground">{t.tokens.subtitle}</p>
         </div>
-        <button type="button" className="md3-btn-filled" onClick={() => setShowCreate(true)}>
+        <Button onClick={() => setShowCreate(true)}>
           <Plus className="h-4 w-4" />
           {t.tokens.create}
-        </button>
+        </Button>
       </header>
 
       {error ? (
-        <div className="md3-card-filled flex flex-col items-center gap-3 px-6 py-12 text-error">
-          <XCircle className="h-8 w-8" />
-          <p>{error}</p>
-          <button type="button" className="md3-btn-filled" onClick={load}>
-            {t.common.retry}
-          </button>
-        </div>
+        <Card>
+          <CardContent className="flex flex-col items-center gap-3 px-6 py-12 text-destructive">
+            <XCircle className="h-8 w-8" />
+            <p>{error}</p>
+            <Button onClick={load}>{t.common.retry}</Button>
+          </CardContent>
+        </Card>
       ) : loading ? (
-        <div className="flex items-center justify-center gap-2 py-20 text-body-md text-surface-on/60">
+        <div className="flex items-center justify-center gap-2 py-20 text-sm text-muted-foreground">
           <Loader2 className="h-5 w-5 animate-spin" />
           {t.common.loading}
         </div>
       ) : tokens.length === 0 ? (
-        <div className="md3-card px-6 py-16 text-center text-body-md text-surface-on/60">
-          还没有 Token，点击右上角创建一个
-        </div>
+        <Card>
+          <CardContent className="flex flex-col items-center gap-3 px-6 py-16 text-center text-sm text-muted-foreground">
+            <Key className="h-8 w-8 opacity-40" />
+            <p>{'还没有 Token，点击右上角创建一个'}</p>
+          </CardContent>
+        </Card>
       ) : (
-        <div className="md3-card overflow-hidden">
+        <Card className="overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[500px] text-left text-body-md">
-              <thead className="bg-surface-container-high text-label-md uppercase tracking-wide text-surface-on/60">
-                <tr>
-                  <th className="px-4 py-2">{t.tokens.name}</th>
-                  <th className="hidden w-36 px-4 py-2 sm:table-cell">{t.tokens.lastUsed}</th>
-                  <th className="hidden w-36 px-4 py-2 md:table-cell">{t.tokens.created}</th>
-                  <th className="w-20 px-4 py-2 text-right">{t.common.actions}</th>
-                </tr>
-              </thead>
-              <tbody>
-                <AnimatePresence initial={false}>
-                  {tokens.map((tok) => (
-                    <motion.tr
-                      key={tok.id}
-                      layout
-                      initial={{ opacity: 0, y: 4 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0 }}
-                      className="border-t border-outline-variant/50 hover:bg-surface-container-low"
-                    >
-                      <td className="px-4 py-2 font-mono text-body-sm">{tok.name}</td>
-                      <td className="hidden px-4 py-2 text-body-sm text-surface-on/70 sm:table-cell">
-                        {tok.last_used ? formatDate(tok.last_used) : t.tokens.neverUsed}
-                      </td>
-                      <td className="hidden px-4 py-2 text-body-sm text-surface-on/70 md:table-cell">
-                        {formatDate(tok.created_at)}
-                      </td>
-                      <td className="px-4 py-2 text-right">
-                        <button
-                          type="button"
-                          className="rounded-full p-2 text-surface-on/60 transition-colors hover:bg-error/10 hover:text-error"
-                          onClick={() => setDeletingId(tok.id)}
-                          aria-label={t.tokens.delete}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </td>
-                    </motion.tr>
-                  ))}
-                </AnimatePresence>
-              </tbody>
-            </table>
+            <Table className="min-w-[500px]">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t.tokens.name}</TableHead>
+                  <TableHead className="hidden w-36 sm:table-cell">{t.tokens.lastUsed}</TableHead>
+                  <TableHead className="hidden w-36 md:table-cell">{t.tokens.created}</TableHead>
+                  <TableHead className="w-20 text-right">{t.common.actions}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {tokens.map((tok) => (
+                  <TableRow key={tok.id}>
+                    <TableCell className="font-mono text-sm">{tok.name}</TableCell>
+                    <TableCell className="hidden text-sm text-muted-foreground sm:table-cell">
+                      {tok.last_used ? formatDate(tok.last_used) : t.tokens.neverUsed}
+                    </TableCell>
+                    <TableCell className="hidden text-sm text-muted-foreground md:table-cell">
+                      {formatDate(tok.created_at)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                        onClick={() => setDeletingId(tok.id)}
+                        aria-label={t.tokens.delete}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           </div>
-        </div>
+        </Card>
       )}
 
       {/* Create dialog */}
-      <AnimatePresence>
-        {showCreate && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.18 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4"
-            role="dialog"
-            aria-modal="true"
-          >
-            <div className="absolute inset-0 bg-surface-dark/40 backdrop-blur-sm" onClick={() => !creating && setShowCreate(false)} aria-hidden />
-            <motion.div
-              initial={{ opacity: 0, scale: 0.96, y: 8 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.96 }}
-              transition={{ duration: 0.2, ease: [0.2, 0, 0, 1] }}
-              className="relative w-full max-w-md rounded-md bg-surface-container p-6 shadow-elev-3"
-            >
-              <h2 className="text-title-md text-surface-on">{t.tokens.create}</h2>
-              <input
-                autoFocus
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                placeholder={t.tokens.namePlaceholder}
-                disabled={creating}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !creating) void handleCreate();
-                  if (e.key === 'Escape' && !creating) setShowCreate(false);
-                }}
-                className="md3-input mt-4"
-              />
-              <div className="mt-5 flex justify-end gap-2">
-                <button type="button" className="md3-btn-text" onClick={() => setShowCreate(false)} disabled={creating}>
-                  {t.common.cancel}
-                </button>
-                <button type="button" className="md3-btn-filled" disabled={creating || !newName.trim()} onClick={() => void handleCreate()}>
-                  {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                  {t.tokens.create}
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <Dialog open={showCreate} onOpenChange={(open) => { if (!creating) setShowCreate(open); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t.tokens.create}</DialogTitle>
+          </DialogHeader>
+          <Input
+            autoFocus
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            placeholder={t.tokens.namePlaceholder}
+            disabled={creating}
+            onKeyDown={(e) => {
+              if (e.nativeEvent.isComposing || e.keyCode === 229) return;
+              if (e.key === 'Enter' && !creating) void handleCreate();
+            }}
+          />
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setShowCreate(false)} disabled={creating}>
+              {t.common.cancel}
+            </Button>
+            <Button disabled={creating || !newName.trim()} onClick={() => void handleCreate()}>
+              {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              {t.tokens.create}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Raw token display */}
-      <AnimatePresence>
-        {rawToken && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.18 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4"
-            role="dialog"
-            aria-modal="true"
-          >
-            <div className="absolute inset-0 bg-surface-dark/40 backdrop-blur-sm" onClick={() => setRawToken(null)} aria-hidden />
-            <motion.div
-              initial={{ opacity: 0, scale: 0.96, y: 8 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.96 }}
-              transition={{ duration: 0.2, ease: [0.2, 0, 0, 1] }}
-              className="relative w-full max-w-md rounded-md bg-surface-container p-6 shadow-elev-3"
-            >
-              <h2 className="text-title-md text-surface-on">{t.tokens.rawTokenTitle}</h2>
-              <p className="mt-2 text-body-sm text-surface-on/60">{t.tokens.rawTokenDesc}</p>
-              <div className="md3-input mt-4 flex flex-wrap items-center gap-x-2 gap-y-1 sm:flex-nowrap">
-                <code className="flex-1 break-all font-mono text-body-sm text-primary">{rawToken}</code>
-                <button
-                  type="button"
-                  className="md3-btn-text shrink-0"
-                  onClick={() => void handleCopyRawToken()}
-                >
-                  {t.tokens.rawTokenCopy}
-                </button>
-              </div>
-              <div className="mt-5 flex justify-end">
-                <button type="button" className="md3-btn-filled" onClick={() => setRawToken(null)}>
-                  {t.common.close}
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <Dialog open={rawToken !== null} onOpenChange={(open) => { if (!open) setRawToken(null); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t.tokens.rawTokenTitle}</DialogTitle>
+            <DialogDescription>{t.tokens.rawTokenDesc}</DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-md border border-input bg-muted/40 px-3 py-2 sm:flex-nowrap">
+            <code className="flex-1 break-all font-mono text-sm text-primary">{rawToken}</code>
+            <Button variant="ghost" size="sm" className="shrink-0" onClick={() => void handleCopyRawToken()}>
+              {t.tokens.rawTokenCopy}
+            </Button>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setRawToken(null)}>{t.common.close}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <ConfirmDialog
         open={deletingId !== null}

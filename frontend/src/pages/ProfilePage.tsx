@@ -4,18 +4,22 @@ import { changePassword, fetchProfile, updateProfile, type UserProfile } from '@
 import { useToast } from '@hooks/useToast';
 import PasskeyManager from '@pages/PasskeyManager';
 import { t } from '@/i18n/strings';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 const MIN_PASSWORD_LENGTH = 6;
 
 export default function ProfilePage() {
   return (
     <div>
-      <header className="mb-6 flex flex-col gap-3 sm:mb-8">
-        <h2 className="text-title-md text-surface-on sm:text-headline-sm">{t.profile.title}</h2>
-        <p className="text-body-sm text-surface-on/60">{t.profile.subtitle}</p>
+      <header className="mb-6 flex flex-col gap-1 sm:mb-8">
+        <h2 className="text-lg font-semibold text-foreground sm:text-xl">{t.profile.title}</h2>
+        <p className="text-sm text-muted-foreground">{t.profile.subtitle}</p>
       </header>
 
-      <div className="space-y-6">
+      <div className="flex flex-col gap-6">
         <ProfileSection />
         <PasswordSection />
         <PasskeySection />
@@ -76,73 +80,66 @@ function ProfileSection() {
   };
 
   return (
-    <section className="md3-card p-5 sm:p-6" aria-labelledby="profile-section-title">
-      <SectionHeader
-        id="profile-section-title"
-        icon={<User className="h-5 w-5" />}
-        title={t.profile.profileSection}
-      />
+    <Card aria-labelledby="profile-section-title">
+      <CardContent className="p-5 sm:p-6">
+        <SectionHeader
+          id="profile-section-title"
+          icon={<User className="h-5 w-5" />}
+          title={t.profile.profileSection}
+        />
 
-      {error ? (
-        <ErrorState message={error} onRetry={() => void load()} />
-      ) : loading || profile === null ? (
-        <LoadingState />
-      ) : (
-        <div className="mt-4 space-y-4">
-          <div>
-            <label
-              htmlFor="profile-username"
-              className="mb-1.5 block text-label-md text-surface-on/70"
-            >
-              {t.profile.username}
-            </label>
-            <input
-              id="profile-username"
-              type="text"
-              value={profile.username}
-              readOnly
-              disabled
-              aria-describedby="profile-username-hint"
-              className="md3-input cursor-not-allowed bg-surface-container-low text-surface-on/70"
-            />
-            <p id="profile-username-hint" className="mt-1 text-body-sm text-surface-on/50">
-              {t.profile.usernameReadonlyHint}
-            </p>
-          </div>
+        {error ? (
+          <ErrorState message={error} onRetry={() => void load()} />
+        ) : loading || profile === null ? (
+          <LoadingState />
+        ) : (
+          <div className="mt-4 flex flex-col gap-4">
+            <div>
+              <Label htmlFor="profile-username" className="mb-1.5 block text-muted-foreground">
+                {t.profile.username}
+              </Label>
+              <Input
+                id="profile-username"
+                type="text"
+                value={profile.username}
+                readOnly
+                disabled
+                aria-describedby="profile-username-hint"
+                className="cursor-not-allowed bg-muted/50"
+              />
+              <p id="profile-username-hint" className="mt-1 text-xs text-muted-foreground">
+                {t.profile.usernameReadonlyHint}
+              </p>
+            </div>
 
-          <div>
-            <label
-              htmlFor="profile-display-name"
-              className="mb-1.5 block text-label-md text-surface-on/70"
-            >
-              {t.profile.displayName}
-            </label>
-            <input
-              id="profile-display-name"
-              type="text"
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              placeholder={t.profile.displayNamePlaceholder}
-              maxLength={60}
-              disabled={saving}
-              className="md3-input"
-            />
-          </div>
+            <div>
+              <Label htmlFor="profile-display-name" className="mb-1.5 block text-muted-foreground">
+                {t.profile.displayName}
+              </Label>
+              <Input
+                id="profile-display-name"
+                type="text"
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                placeholder={t.profile.displayNamePlaceholder}
+                maxLength={60}
+                disabled={saving}
+              />
+            </div>
 
-          <div className="flex justify-end">
-            <button
-              type="button"
-              className="md3-btn-filled"
-              onClick={() => void handleSave()}
-              disabled={saving || !dirty || !draft.trim()}
-            >
-              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-              {t.profile.saveProfile}
-            </button>
+            <div className="flex justify-end">
+              <Button
+                onClick={() => void handleSave()}
+                disabled={saving || !dirty || !draft.trim()}
+              >
+                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                {t.profile.saveProfile}
+              </Button>
+            </div>
           </div>
-        </div>
-      )}
-    </section>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -197,78 +194,64 @@ function PasswordSection() {
     submitting || !form.current || !form.next || !form.confirm;
 
   return (
-    <section className="md3-card p-5 sm:p-6" aria-labelledby="password-section-title">
-      <SectionHeader
-        id="password-section-title"
-        icon={<Lock className="h-5 w-5" />}
-        title={t.profile.passwordSection}
-      />
+    <Card aria-labelledby="password-section-title">
+      <CardContent className="p-5 sm:p-6">
+        <SectionHeader
+          id="password-section-title"
+          icon={<Lock className="h-5 w-5" />}
+          title={t.profile.passwordSection}
+        />
 
-      <form className="mt-4 space-y-4" onSubmit={(e) => void handleSubmit(e)}>
-        <div>
-          <label
-            htmlFor="pwd-current"
-            className="mb-1.5 block text-label-md text-surface-on/70"
-          >
-            {t.profile.currentPassword}
-          </label>
-          <input
-            id="pwd-current"
-            type="password"
-            autoComplete="current-password"
-            value={form.current}
-            onChange={(e) => update({ current: e.target.value })}
-            disabled={submitting}
-            className="md3-input"
-          />
-        </div>
-        <div>
-          <label
-            htmlFor="pwd-next"
-            className="mb-1.5 block text-label-md text-surface-on/70"
-          >
-            {t.profile.newPassword}
-          </label>
-          <input
-            id="pwd-next"
-            type="password"
-            autoComplete="new-password"
-            value={form.next}
-            onChange={(e) => update({ next: e.target.value })}
-            disabled={submitting}
-            className="md3-input"
-          />
-        </div>
-        <div>
-          <label
-            htmlFor="pwd-confirm"
-            className="mb-1.5 block text-label-md text-surface-on/70"
-          >
-            {t.profile.confirmPassword}
-          </label>
-          <input
-            id="pwd-confirm"
-            type="password"
-            autoComplete="new-password"
-            value={form.confirm}
-            onChange={(e) => update({ confirm: e.target.value })}
-            disabled={submitting}
-            className="md3-input"
-          />
-        </div>
+        <form className="mt-4 flex flex-col gap-4" onSubmit={(e) => void handleSubmit(e)}>
+          <div>
+            <Label htmlFor="pwd-current" className="mb-1.5 block text-muted-foreground">
+              {t.profile.currentPassword}
+            </Label>
+            <Input
+              id="pwd-current"
+              type="password"
+              autoComplete="current-password"
+              value={form.current}
+              onChange={(e) => update({ current: e.target.value })}
+              disabled={submitting}
+            />
+          </div>
+          <div>
+            <Label htmlFor="pwd-next" className="mb-1.5 block text-muted-foreground">
+              {t.profile.newPassword}
+            </Label>
+            <Input
+              id="pwd-next"
+              type="password"
+              autoComplete="new-password"
+              value={form.next}
+              onChange={(e) => update({ next: e.target.value })}
+              disabled={submitting}
+            />
+          </div>
+          <div>
+            <Label htmlFor="pwd-confirm" className="mb-1.5 block text-muted-foreground">
+              {t.profile.confirmPassword}
+            </Label>
+            <Input
+              id="pwd-confirm"
+              type="password"
+              autoComplete="new-password"
+              value={form.confirm}
+              onChange={(e) => update({ confirm: e.target.value })}
+              disabled={submitting}
+            />
+          </div>
 
-        <div className="flex justify-end">
-          <button
-            type="submit"
-            className="md3-btn-filled"
-            disabled={submitDisabled}
-          >
-            {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Lock className="h-4 w-4" />}
-            {t.profile.changePassword}
-          </button>
-        </div>
-      </form>
-    </section>
+          <div className="flex justify-end">
+            <Button type="submit" disabled={submitDisabled}>
+              {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Lock className="h-4 w-4" />}
+              {t.profile.changePassword}
+            </Button>
+          </div>
+        </form>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -276,17 +259,19 @@ function PasswordSection() {
 
 function PasskeySection() {
   return (
-    <section className="md3-card p-5 sm:p-6" aria-labelledby="passkey-section-title">
-      <SectionHeader
-        id="passkey-section-title"
-        icon={<Fingerprint className="h-5 w-5" />}
-        title={t.profile.passkeySection}
-        description={t.profile.passkeySectionDesc}
-      />
-      <div className="mt-4">
-        <PasskeyManager />
-      </div>
-    </section>
+    <Card aria-labelledby="passkey-section-title">
+      <CardContent className="p-5 sm:p-6">
+        <SectionHeader
+          id="passkey-section-title"
+          icon={<Fingerprint className="h-5 w-5" />}
+          title={t.profile.passkeySection}
+          description={t.profile.passkeySectionDesc}
+        />
+        <div className="mt-4">
+          <PasskeyManager />
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -307,16 +292,16 @@ function SectionHeader({
     <div className="flex items-start gap-3">
       <span
         aria-hidden
-        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-container text-primary-on-container"
+        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-secondary text-secondary-foreground"
       >
         {icon}
       </span>
       <div className="min-w-0">
-        <h3 id={id} className="text-title-sm text-surface-on sm:text-title-md">
+        <h3 id={id} className="text-base font-semibold text-foreground">
           {title}
         </h3>
         {description ? (
-          <p className="mt-0.5 text-body-sm text-surface-on/60">{description}</p>
+          <p className="mt-0.5 text-sm text-muted-foreground">{description}</p>
         ) : null}
       </div>
     </div>
@@ -325,7 +310,7 @@ function SectionHeader({
 
 function LoadingState() {
   return (
-    <div className="mt-4 flex items-center justify-center gap-2 py-10 text-body-md text-surface-on/60">
+    <div className="mt-4 flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground">
       <Loader2 className="h-5 w-5 animate-spin" />
       <span>{t.common.loading}</span>
     </div>
@@ -334,11 +319,9 @@ function LoadingState() {
 
 function ErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {
   return (
-    <div className="mt-4 flex flex-col items-center gap-3 px-6 py-10 text-error">
-      <p className="text-body-md">{message}</p>
-      <button type="button" className="md3-btn-filled" onClick={onRetry}>
-        {t.common.retry}
-      </button>
+    <div className="mt-4 flex flex-col items-center gap-3 px-6 py-10 text-destructive">
+      <p className="text-sm">{message}</p>
+      <Button onClick={onRetry}>{t.common.retry}</Button>
     </div>
   );
 }

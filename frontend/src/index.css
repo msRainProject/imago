@@ -3,39 +3,108 @@
 @tailwind utilities;
 
 /* -------------------------------------------------------------------------- */
-/*  Hill Images — MD3 base layer                                              */
-/*  Tokens are defined in tailwind.config.js; this file applies the light &   */
-/*  dark color-scheme variables consumed by raw CSS.                          */
+/*  Hill Images — shadcn/ui design tokens                                     */
+/*  Brand palette derived from the original MD3 violet theme (#6750A4).      */
 /* -------------------------------------------------------------------------- */
 
-:root {
-  color-scheme: light;
-  --hill-build: 20260625.2;
-  --md-sys-color-primary: #6750a4;
-  --md-sys-color-on-primary: #ffffff;
-  --md-sys-color-primary-container: #eaddff;
-  --md-sys-color-on-primary-container: #21005d;
-  --md-sys-color-surface: #fef7ff;
-  --md-sys-color-on-surface: #1d1b20;
-  --md-sys-color-surface-container: #f3edf7;
-  --md-sys-color-outline: #79747e;
-  --md-sys-color-outline-variant: #cac4d0;
-}
+@layer base {
+  :root {
+    color-scheme: light;
+    --hill-build: 20260710.1;
 
-.dark {
-  color-scheme: dark;
-  --md-sys-color-primary: #d0bcff;
-  --md-sys-color-on-primary: #381e72;
-  --md-sys-color-primary-container: #4f378b;
-  --md-sys-color-on-primary-container: #eaddff;
-  --md-sys-color-surface: #141218;
-  --md-sys-color-on-surface: #e6e0e9;
-  --md-sys-color-surface-container: #211f26;
-  --md-sys-color-outline: #938f99;
-  --md-sys-color-outline-variant: #49454f;
+    --background: 292 100% 98%; /* #FEF7FF */
+    --foreground: 264 8% 12%; /* #1D1B20 */
+
+    --card: 300 100% 99%; /* #FFFBFE */
+    --card-foreground: 264 8% 12%;
+
+    --popover: 300 100% 99%;
+    --popover-foreground: 264 8% 12%;
+
+    --primary: 256 34% 48%; /* #6750A4 */
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 263 65% 92%; /* #E8DEF8 */
+    --secondary-foreground: 258 26% 13%; /* #1D192B */
+
+    --muted: 276 38% 95%; /* #F3EDF7 */
+    --muted-foreground: 264 7% 29%; /* #49454F */
+
+    --accent: 263 100% 93%; /* #EADDFF */
+    --accent-foreground: 261 100% 18%; /* #21005D */
+
+    --destructive: 3 71% 41%; /* #B3261E */
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 146 78% 27%; /* #0F7B3D */
+    --success-foreground: 0 0% 100%;
+
+    --tertiary: 340 21% 41%; /* #7D5260 */
+    --tertiary-foreground: 0 0% 100%;
+
+    --border: 270 11% 79%; /* #CAC4D0 */
+    --input: 270 11% 79%;
+    --ring: 256 34% 48%;
+
+    --radius: 0.75rem;
+
+    --chart-1: 256 34% 48%;
+    --chart-2: 340 21% 41%;
+    --chart-3: 146 78% 27%;
+    --chart-4: 256 60% 68%;
+    --chart-5: 264 7% 45%;
+  }
+
+  .dark {
+    color-scheme: dark;
+
+    --background: 260 14% 8%; /* #141218 */
+    --foreground: 280 17% 90%; /* #E6E0E9 */
+
+    --card: 257 10% 14%; /* #211F26 */
+    --card-foreground: 280 17% 90%;
+
+    --popover: 257 10% 14%;
+    --popover-foreground: 280 17% 90%;
+
+    --primary: 258 100% 87%; /* #D0BCFF */
+    --primary-foreground: 259 58% 28%; /* #381E72 */
+
+    --secondary: 257 13% 31%; /* #4A4458 */
+    --secondary-foreground: 263 65% 92%; /* #E8DEF8 */
+
+    --muted: 257 8% 17%; /* #2B2930 */
+    --muted-foreground: 270 11% 79%; /* #CAC4D0 */
+
+    --accent: 257 43% 38%; /* #4F378B */
+    --accent-foreground: 263 100% 93%; /* #EADDFF */
+
+    --destructive: 3 70% 83%; /* #F2B8B5 */
+    --destructive-foreground: 357 100% 15%; /* #4C0009 */
+
+    --success: 146 55% 65%;
+    --success-foreground: 146 90% 10%;
+
+    --tertiary: 341 63% 80%; /* #EFB8C8 */
+    --tertiary-foreground: 342 60% 17%; /* #492532 */
+
+    --border: 264 7% 29%; /* #49454F */
+    --input: 264 7% 29%;
+    --ring: 258 100% 87%;
+
+    --chart-1: 258 100% 87%;
+    --chart-2: 348 55% 78%;
+    --chart-3: 146 55% 65%;
+    --chart-4: 256 60% 68%;
+    --chart-5: 270 11% 79%;
+  }
 }
 
 @layer base {
+  * {
+    @apply border-border;
+  }
+
   html,
   body,
   #root {
@@ -43,21 +112,21 @@
   }
 
   body {
-    @apply bg-surface text-surface-on font-sans antialiased;
+    @apply bg-background text-foreground font-sans antialiased;
     font-feature-settings: 'cv11', 'ss01';
     text-rendering: optimizeLegibility;
   }
 
-  /* Subtle scrollbar (MD3) */
+  /* Subtle scrollbar */
   ::-webkit-scrollbar {
     width: 10px;
     height: 10px;
   }
   ::-webkit-scrollbar-thumb {
-    @apply rounded-full bg-outline/40;
+    @apply rounded-full bg-muted-foreground/30;
   }
   ::-webkit-scrollbar-thumb:hover {
-    @apply bg-outline/60;
+    @apply bg-muted-foreground/50;
   }
   ::-webkit-scrollbar-track {
     background: transparent;
@@ -72,69 +141,5 @@
       animation-iteration-count: 1 !important;
       transition-duration: 0.01ms !important;
     }
-  }
-}
-
-@layer components {
-  /* MD3 Filled Button (primary) */
-  .md3-btn-filled {
-    @apply inline-flex items-center justify-center gap-2 rounded-full bg-primary px-6 py-2.5 text-label-lg text-primary-on transition-colors duration-md3-short2 ease-md3-standard hover:shadow-md3-1 active:opacity-90 disabled:opacity-40 disabled:pointer-events-none;
-  }
-  .md3-btn-tonal {
-    @apply inline-flex items-center justify-center gap-2 rounded-full bg-primary-container px-6 py-2.5 text-label-lg text-primary-on-container transition-colors duration-md3-short2 ease-md3-standard hover:shadow-md3-1 active:opacity-90 disabled:opacity-40 disabled:pointer-events-none;
-  }
-  .md3-btn-outlined {
-    @apply inline-flex items-center justify-center gap-2 rounded-full border border-outline px-6 py-2.5 text-label-lg text-primary transition-colors duration-md3-short2 ease-md3-standard hover:bg-primary/10 active:bg-primary/10 disabled:opacity-40 disabled:pointer-events-none;
-  }
-  .md3-btn-text {
-    @apply inline-flex items-center justify-center gap-2 rounded-full px-4 py-2 text-label-lg text-primary transition-colors duration-md3-short2 ease-md3-standard hover:bg-primary/10 active:bg-primary/10 disabled:opacity-40 disabled:pointer-events-none;
-  }
-  /* MD3 Filled Button (error) — destructive actions */
-  .md3-btn-danger {
-    @apply inline-flex items-center justify-center gap-2 rounded-full bg-error px-6 py-2.5 text-label-lg text-error-on transition-colors duration-md3-short2 ease-md3-standard hover:shadow-md3-1 active:opacity-90 disabled:opacity-40 disabled:pointer-events-none;
-  }
-
-  /* MD3 Card (elevated) */
-  .md3-card {
-    @apply rounded-md bg-surface-container shadow-elev-1 transition-shadow duration-md3-short2 ease-md3-standard;
-  }
-  .md3-card-elevated {
-    @apply rounded-md bg-surface-container-low shadow-elev-1;
-  }
-  .md3-card-filled {
-    @apply rounded-md bg-surface-container-high;
-  }
-  .md3-card-outlined {
-    @apply rounded-md border border-outline-variant bg-surface;
-  }
-
-  /* MD3 Text Field */
-  .md3-text-field {
-    @apply relative w-full;
-  }
-  .md3-text-field input,
-  .md3-text-field textarea {
-    @apply w-full rounded-xs border border-outline-variant bg-surface px-4 py-3 text-body-lg text-surface-on outline-none transition-colors duration-md3-short2 ease-md3-standard placeholder:text-outline focus:border-primary focus:ring-2 focus:ring-primary/30;
-  }
-
-  .md3-input {
-    @apply w-full min-h-[52px] rounded-xs border border-outline-variant bg-surface px-4 py-3 text-[16px] leading-6 text-surface-on outline-none transition-colors duration-md3-short2 ease-md3-standard placeholder:text-surface-on/45 focus:border-primary focus:ring-2 focus:ring-primary/30;
-  }
-  .md3-input-leading-icon {
-    @apply pl-16;
-  }
-  .md3-input-icon-wrap {
-    @apply pointer-events-none absolute inset-y-0 left-0 flex w-14 items-center justify-center text-surface-on/45;
-  }
-  .md3-input-affix-wrap {
-    @apply relative w-full;
-  }
-
-  /* MD3 Chip */
-  .md3-chip {
-    @apply inline-flex items-center gap-2 rounded-sm border border-outline-variant px-3 py-1.5 text-label-lg text-surface-on transition-colors duration-md3-short2 ease-md3-standard hover:bg-primary/10;
-  }
-  .md3-chip-selected {
-    @apply border-transparent bg-secondary-container text-secondary-on-container;
   }
 }
