@@ -9,6 +9,11 @@ import type { LoginResponse } from '@api/types';
 import { setToken, setUser } from '@/utils/auth';
 import { base64urlToBytes } from '@/utils/webauthn';
 import { t } from '@/i18n/strings';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Separator } from '@/components/ui/separator';
 
 type AuthStatus = 'idle' | 'working' | 'success' | 'error';
 
@@ -178,16 +183,16 @@ export default function LoginPage() {
         transition={{ duration: 0.35, ease: [0.2, 0, 0, 1] }}
         className="w-full max-w-sm"
       >
-        <div className="md3-card overflow-hidden">
+        <Card className="overflow-hidden shadow-lg">
           <div className="flex flex-col items-center px-6 pt-8 pb-2 text-center">
-            <span className="mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-on shadow-elev-1">
+            <span className="mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md">
               <Fingerprint className="h-7 w-7" />
             </span>
-            <h1 className="text-headline-sm text-surface-on">{t.login.title}</h1>
-            <p className="mt-1 text-body-sm text-surface-on/60">{t.login.subtitle}</p>
+            <h1 className="text-xl font-semibold text-foreground text-balance">{t.login.title}</h1>
+            <p className="mt-1 text-sm text-muted-foreground">{t.login.subtitle}</p>
           </div>
 
-          <div className="px-6 py-6">
+          <CardContent className="px-6 py-6">
             <motion.form
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
@@ -221,9 +226,9 @@ export default function LoginPage() {
 
               <ErrorBanner message={pwError} />
 
-              <button
+              <Button
                 type="submit"
-                className="md3-btn-filled w-full"
+                className="w-full"
                 disabled={pwStatus === 'working' || pwStatus === 'success'}
               >
                 {pwStatus === 'working' ? (
@@ -236,25 +241,26 @@ export default function LoginPage() {
                 ) : (
                   t.login.submitPassword
                 )}
-              </button>
+              </Button>
             </motion.form>
 
-            <div className="mt-4 flex items-center gap-3 text-body-sm text-surface-on/40">
-              <span className="h-px flex-1 bg-outline-variant/60" />
-              <span>或</span>
-              <span className="h-px flex-1 bg-outline-variant/60" />
+            <div className="mt-4 flex items-center gap-3 text-sm text-muted-foreground">
+              <Separator className="flex-1" />
+              <span>{'或'}</span>
+              <Separator className="flex-1" />
             </div>
 
-            <div className="mt-4 space-y-3">
+            <div className="mt-4 flex flex-col gap-3">
               <ErrorBanner message={pkError} />
 
               {!webAuthnSupported && (
                 <ErrorBanner message={t.login.passkeyUnsupported} variant="warning" />
               )}
 
-              <button
+              <Button
                 type="button"
-                className="md3-btn-outlined w-full"
+                variant="outline"
+                className="w-full"
                 onClick={handlePasskeyLogin}
                 disabled={
                   !webAuthnSupported || pkStatus === 'working' || pkStatus === 'success'
@@ -273,10 +279,10 @@ export default function LoginPage() {
                     {t.login.passkeyButton}
                   </>
                 )}
-              </button>
+              </Button>
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
 
       </motion.div>
     </div>
@@ -308,17 +314,14 @@ function FormField({
 }) {
   return (
     <div>
-      <label
-        htmlFor={id}
-        className="mb-1.5 block text-label-md text-surface-on/70"
-      >
+      <Label htmlFor={id} className="mb-1.5 block text-muted-foreground">
         {label}
-      </label>
+      </Label>
       <div className="relative">
-        <span className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-surface-on/45">
+        <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-muted-foreground/70">
           {icon}
         </span>
-        <input
+        <Input
           id={id}
           name={id}
           type={type}
@@ -327,7 +330,7 @@ function FormField({
           placeholder={placeholder}
           autoComplete={autoComplete}
           disabled={disabled}
-          className="md3-input pl-12 disabled:opacity-50"
+          className="pl-10"
         />
       </div>
     </div>
@@ -344,13 +347,13 @@ function ErrorBanner({
   if (!message) return null;
   const tone =
     variant === 'warning'
-      ? 'bg-tertiary-container text-tertiary-on-container border-tertiary/30'
-      : 'bg-error-container text-error-on-container border-error/30';
+      ? 'bg-tertiary/10 text-tertiary border-tertiary/30'
+      : 'bg-destructive/10 text-destructive border-destructive/30';
   return (
     <motion.div
       initial={{ opacity: 0, y: -4 }}
       animate={{ opacity: 1, y: 0 }}
-      className={`rounded-sm border px-3 py-2 text-body-sm ${tone}`}
+      className={`rounded-md border px-3 py-2 text-sm ${tone}`}
       role="alert"
     >
       {message}

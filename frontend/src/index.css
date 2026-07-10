@@ -5,8 +5,6 @@
 /* -------------------------------------------------------------------------- */
 /*  Hill Images — shadcn/ui design tokens                                     */
 /*  Brand palette derived from the original MD3 violet theme (#6750A4).      */
-/*  Legacy MD3 component classes are kept below during migration and will    */
-/*  be removed in the cleanup phase.                                          */
 /* -------------------------------------------------------------------------- */
 
 @layer base {
@@ -40,6 +38,9 @@
 
     --success: 146 78% 27%; /* #0F7B3D */
     --success-foreground: 0 0% 100%;
+
+    --tertiary: 340 21% 41%; /* #7D5260 */
+    --tertiary-foreground: 0 0% 100%;
 
     --border: 270 11% 79%; /* #CAC4D0 */
     --input: 270 11% 79%;
@@ -84,6 +85,9 @@
     --success: 146 55% 65%;
     --success-foreground: 146 90% 10%;
 
+    --tertiary: 341 63% 80%; /* #EFB8C8 */
+    --tertiary-foreground: 342 60% 17%; /* #492532 */
+
     --border: 264 7% 29%; /* #49454F */
     --input: 264 7% 29%;
     --ring: 258 100% 87%;
@@ -119,10 +123,10 @@
     height: 10px;
   }
   ::-webkit-scrollbar-thumb {
-    @apply rounded-full bg-outline/40;
+    @apply rounded-full bg-muted-foreground/30;
   }
   ::-webkit-scrollbar-thumb:hover {
-    @apply bg-outline/60;
+    @apply bg-muted-foreground/50;
   }
   ::-webkit-scrollbar-track {
     background: transparent;
@@ -137,68 +141,5 @@
       animation-iteration-count: 1 !important;
       transition-duration: 0.01ms !important;
     }
-  }
-}
-
-/* -------------------------------------------------------------------------- */
-/*  Legacy MD3 component classes — TRANSITION ONLY, removed in cleanup phase  */
-/* -------------------------------------------------------------------------- */
-
-@layer components {
-  .md3-btn-filled {
-    @apply inline-flex items-center justify-center gap-2 rounded-full bg-primary px-6 py-2.5 text-label-lg text-primary-foreground transition-colors duration-md3-short2 ease-md3-standard hover:shadow-md3-1 active:opacity-90 disabled:opacity-40 disabled:pointer-events-none;
-  }
-  .md3-btn-tonal {
-    @apply inline-flex items-center justify-center gap-2 rounded-full bg-primary-container px-6 py-2.5 text-label-lg text-primary-on-container transition-colors duration-md3-short2 ease-md3-standard hover:shadow-md3-1 active:opacity-90 disabled:opacity-40 disabled:pointer-events-none;
-  }
-  .md3-btn-outlined {
-    @apply inline-flex items-center justify-center gap-2 rounded-full border border-outline px-6 py-2.5 text-label-lg text-primary transition-colors duration-md3-short2 ease-md3-standard hover:bg-primary/10 active:bg-primary/10 disabled:opacity-40 disabled:pointer-events-none;
-  }
-  .md3-btn-text {
-    @apply inline-flex items-center justify-center gap-2 rounded-full px-4 py-2 text-label-lg text-primary transition-colors duration-md3-short2 ease-md3-standard hover:bg-primary/10 active:bg-primary/10 disabled:opacity-40 disabled:pointer-events-none;
-  }
-  .md3-btn-danger {
-    @apply inline-flex items-center justify-center gap-2 rounded-full bg-error px-6 py-2.5 text-label-lg text-error-on transition-colors duration-md3-short2 ease-md3-standard hover:shadow-md3-1 active:opacity-90 disabled:opacity-40 disabled:pointer-events-none;
-  }
-
-  .md3-card {
-    @apply rounded-md bg-surface-container shadow-elev-1 transition-shadow duration-md3-short2 ease-md3-standard;
-  }
-  .md3-card-elevated {
-    @apply rounded-md bg-surface-container shadow-elev-1;
-  }
-  .md3-card-filled {
-    @apply rounded-md bg-surface-container-high;
-  }
-  .md3-card-outlined {
-    @apply rounded-md border border-outline-variant bg-surface;
-  }
-
-  .md3-text-field {
-    @apply relative w-full;
-  }
-  .md3-text-field input,
-  .md3-text-field textarea {
-    @apply w-full rounded-xs border border-outline-variant bg-surface px-4 py-3 text-body-lg text-surface-on outline-none transition-colors duration-md3-short2 ease-md3-standard placeholder:text-outline focus:border-primary focus:ring-2 focus:ring-primary/30;
-  }
-
-  .md3-input {
-    @apply w-full min-h-[52px] rounded-xs border border-outline-variant bg-surface px-4 py-3 text-[16px] leading-6 text-surface-on outline-none transition-colors duration-md3-short2 ease-md3-standard placeholder:text-surface-on/45 focus:border-primary focus:ring-2 focus:ring-primary/30;
-  }
-  .md3-input-leading-icon {
-    @apply pl-16;
-  }
-  .md3-input-icon-wrap {
-    @apply pointer-events-none absolute inset-y-0 left-0 flex w-14 items-center justify-center text-surface-on/45;
-  }
-  .md3-input-affix-wrap {
-    @apply relative w-full;
-  }
-
-  .md3-chip {
-    @apply inline-flex items-center gap-2 rounded-sm border border-outline-variant px-3 py-1.5 text-label-lg text-surface-on transition-colors duration-md3-short2 ease-md3-standard hover:bg-primary/10;
-  }
-  .md3-chip-selected {
-    @apply border-transparent bg-secondary-container text-secondary-on-container;
   }
 }
