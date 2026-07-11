@@ -1,185 +1,242 @@
-# Imago 图床使用手册
+# Imago 使用手册
 
-## 1. 系统说明
+本文档描述当前 Go + React 前端的实际行为。接口细节见 [API.md](API.md)，部署见 [HANDOVER.md](HANDOVER.md)。
 
-Imago 是一套带后台管理、Passkey 登录、API 上传和多存储后端的图床系统。
+---
 
-由两部分组成：
+## 1. 页面路由
 
-- 后端：Go（Gin + GORM + SQLite）
-- 前端：React + Vite + Tailwind CSS
+| 路径 | 页面 | 说明 |
+|------|------|------|
+| `/` | 上传首页 | 拖拽 / 多文件上传 + 公开统计。**需要登录**。 |
+| `/login` | 登录 | 密码登录 / Passkey 登录 |
+| `/files` | 文件管理 | 分页、搜索、复制链接、重命名、删除、批量删除 |
+| `/admin` | 管理控制台 | 5 个页签（见下） |
 
-常见使用入口：
+旧链接兼容：`/admin/files` 与 `/admin?tab=files` 会自动跳到 `/files`。
 
-- 首页：上传图片
-- 登录页：密码登录 / Passkey 登录
-- 文件管理：浏览、搜索、复制链接、重命名、删除
-- 管理控制台：系统设置、存储设置、API 授权、用户管理、个人资料 / Passkey
+### 命令面板（⌘K）
 
-线上环境参考见 [HANDOVER.md](HANDOVER.md)。
+登录后任意页面按 `⌘K` / `Ctrl+K`（或点顶栏「搜索」按钮）打开命令面板，可快速跳转到首页、文件管理、控制台各页签等。底层使用 `cmdk`。
 
-## 2. 角色与权限
+### 管理控制台页签（`/admin`）
 
-系统目前有两类账号：
+| 页签 | 实际内容 |
+|------|----------|
+| 概览（默认）| 仪表盘：图片数 / 总大小 / 用户数卡片 + 近 14 天上传趋势（面积图）+ 文件类型分布（饼图，取前 5）|
+| 系统设置 | 站点信息、上传限制、WebAuthn 配置 |
+| 存储驱动 | 切换 local / R2 / S3，填对应凭证 |
+| API Token | 即 **API 授权** 页：管理应用 API Key（每个 Key 独立命名空间）|
+| 用户管理 | 创建 / 编辑 / 删除用户（仅管理员）|
+| 个人中心 | 昵称、修改密码、Passkey 管理（当前登录用户自己）|
 
-- `admin`：管理员，可进入管理控制台，管理用户、配置、存储、API Key
-- `user`：普通用户，可登录、上传、管理自己的个人资料和 Passkey
+> 注意：「API Token」这个页签现在渲染的是应用 API Key（`app_` 前缀），不是旧版的 `hill_` Token。旧 Token 接口（`/api/admin/tokens`）仍保留在代码里，但前端入口已切到 API Key。
 
-说明：
+---
 
-- 上传页面要求先登录
-- Passkey 绑定的是"当前登录用户"
-- Passkey 登录后获得的是该用户原本的权限，不会降级
+## 2. 角色
 
-## 3. 页面入口
+- `admin`：可进管理控制台，管理用户、配置、存储、API Key
+- `user`：可登录、上传、管理自己的个人中心
 
-前端主要路由如下：
+Passkey 绑定的是「当前登录用户」，用 Passkey 登录后拿到的是该用户原本的角色，不会升降级。
 
-- `/`：上传首页
-- `/login`：登录页
-- `/files`：文件管理
-- `/admin`：管理控制台
+---
 
-管理控制台页签：
+## 3. 登录
 
-- `设置`
-- `存储`
-- `API 授权`
-- `用户`
-- `个人资料 / Passkey`
+`/login` 提供两种方式：
 
-## 4. 首次使用
+1. **密码**：`POST /api/auth/login`，返回 JWT 写入 `localStorage`（key：`hill_token`），登录后跳回首页 `/`。
+2. **Passkey**：可发现凭据流程（不需要先填用户名），浏览器弹出原生 Passkey 选择器，验证通过后写入 JWT。
 
-### 4.1 登录
+---
 
-打开 `/login` 后可以用两种方式登录：
+## 4. 上传图片
 
-1. 用户名 + 密码
-2. Passkey
-
-密码登录成功后会回到首页 `/`，不会自动跳文件管理页。
-
-### 4.2 绑定 Passkey
-
-进入管理控制台的"个人资料 / Passkey"页后，可以绑定新的 Passkey。
-
-当前流程：
-
-1. 点击"绑定 Passkey"
-2. 先输入这个 Passkey 的名称
-3. 调起系统级 WebAuthn / Passkey 认证器
-4. 绑定成功后出现在列表里
-
-每个 Passkey 会记录：
-
-- 名称
-- 绑定时间
-- 最后使用时间
-
-## 5. 上传图片
-
-### 5.1 上传方式
-
-首页支持：
+### 4.1 方式
 
 - 点击选择文件
 - 拖拽上传
-- 多文件上传
+- 多文件同时上传（每个文件一个进度条，可单独取消）
 
-上传前如果没有登录，页面会提示先登录。
+未登录时点上传会提示先登录。
 
-### 5.2 上传结果
+### 4.2 结果
 
-上传成功后，页面会展示每个文件的结果卡片，并提供复制按钮：
+上传成功后每个文件一个结果卡片，提供复制按钮：
 
 - 直链
 - Markdown
 - HTML
 - BBCode
 
-### 5.3 支持格式
+链接以后端返回的 `url` 为准。
 
-- `jpg`、`jpeg`、`png`、`gif`、`bmp`
-- `webp`、`ico`
-- `heic`、`heif`
-- `dng`
+### 4.3 支持格式
 
-HEIC/HEIF 会走服务端兼容处理，DNG 会先做 RAW 转码。
+`jpg` / `jpeg` / `png` / `gif` / `bmp` / `webp` / `ico` / `heic` / `heif` / `dng`
 
-### 5.4 上传限制
+### 4.4 上传限制
 
-前端会读取 `/api/upload/options` 获取当前上传配置：
+前端上传前会调 `GET /api/upload/options` 读取服务器配置：
 
 - `max_upload_mb`：单文件上传上限
-- `allowed_ext`：允许扩展名
-- `target_format`：目标输出格式
-- `max_size_mb`：目标体积上限
-- `max_width` / `max_height`：最大宽高
+- `allowed_ext`：允许的扩展名
+- `enabled`：是否开启服务端图片处理
+- `target_format`：输出格式（`original` / `jpeg` / `png` / `webp`）
+- `max_size_mb` / `max_width` / `max_height`：处理目标
 
-## 6. 图片处理机制
+> 实际限制以后端当前配置为准，文档示例值不是固定的。
 
-当前图片处理是 **服务端处理**，使用系统工具：
+---
 
-- `ffmpeg`：通用转码、压缩
-- `heif-convert`：HEIC/HEIF → PNG
-- `dcraw`：DNG/RAW → PPM/PNG
+## 5. 图片处理
 
-处理能力：
+图片处理在 **服务端** 完成，调用系统工具：
 
-- 自动压缩
-- 自动缩放
-- 统一转为指定格式（JPG/PNG/WebP）
-- HEIC/HEIF 兼容转码
-- DNG/RAW 兼容转码
+- `ffmpeg`：通用转码、压缩、统一格式
+- `heif-convert`（包：`libheif-examples`）：HEIC/HEIF 先转 PNG，避免直接转 WebP 变黑 / 丢色
+- `dcraw`：DNG/RAW 先转 PPM/PNG，再交给 ffmpeg
 
-## 7. 文件命名与公开链接
+> 前端 `processUploadFile` 目前是透传 stub，不做本地压缩；所有处理都在后端。
 
-### 7.1 本地存储
+典型逻辑：
+
+- 普通 JPG/PNG/WebP：直接进 ffmpeg
+- HEIC/HEIF：先转中间格式再压缩 / 转码
+- DNG：先 dcraw 转可处理格式，再 ffmpeg 输出
+
+输出策略可在「系统设置」里选：保留原格式 / 统一 JPG / 统一 PNG / 统一 WebP。
+
+---
+
+## 6. 文件命名与公开链接
+
+### 6.1 本地存储
 
 - 目录：`path_template` 决定，默认 `{year}/{month}`
-- 文件名：12 位随机字母数字 + 扩展名
-- 对外链接：美化链接，非实际磁盘文件名
+- 落盘文件名：12 位随机字母数字 + 扩展名（如 `A1b2C3d4E5f6.jpg`）
+- 对外链接：美化链接，不是实际磁盘文件名
 
-示例：`2026/06/A1b2C3d4E5f6.jpg` → `/2026/A1b2C3d4abcdef012345`
+示例：
 
-API Key 上传路径：`MyBlog/posts/A1b2C3d4E5f6.webp` → `/A1b2C3d4abcdef012345`
+- 网页上传：实际 `2026/06/A1b2C3d4E5f6.jpg` → 对外 `/2026/A1b2C3d4abcdef012345`
+- API Key 上传：实际 `MyBlog/posts/A1b2C3d4E5f6.webp` → 对外 `/A1b2C3d4abcdef012345`
 
-### 7.2 R2 / S3
+### 6.2 R2 / S3
 
-对象存储下优先返回 `public_base_url`，未配置时回退到对象访问 URL。
+优先返回配置的 `public_base_url`；未配置时回退到对象存储访问 URL。
 
-## 8. 文件管理
+---
 
-文件管理页在 `/files`。
+## 7. 文件管理（`/files`）
 
-- 分页浏览
-- 文件名搜索
-- 查看缩略图
-- 复制多种链接格式
-- 单个 / 批量删除
-- 重命名
+- 分页浏览（每页 20 条）
+- 按文件名搜索（防抖 300ms）
+- 缩略图预览
+- 复制直链 / Markdown / HTML / BBCode
+- 单文件重命名 / 删除
+- 多选批量删除
 
-## 9. 管理控制台
+---
 
-入口在 `/admin`。
+## 8. 管理控制台（`/admin`）
 
-- **设置**：网站标题、域名、上传限制、WebAuthn RP 配置、图片处理参数
-- **存储**：切换 local / R2 / S3 驱动
-- **API 授权**：创建 / 管理 API Key
-- **用户**：管理用户（admin only）
-- **个人资料**：修改昵称、密码、管理 Passkey
+### 8.0 概览（仪表盘）
 
-## 10. API 使用
+默认页签，给出图床整体状态：
 
-详见 [API.md](API.md)。
+- 三张统计卡：图片总数、总大小、用户数（来自 `GET /api/stats`）
+- 近 14 天上传趋势面积图（取最近 200 个文件按日聚合）
+- 文件类型分布饼图（按扩展名取前 5）
 
-## 11. 构建与部署
+图表用 `recharts` 渲染。
 
-详见 [HANDOVER.md](HANDOVER.md)。
+### 8.1 系统设置
 
-```bash
-# 构建
-./build.sh
+- 网站标题 / 域名 / 图片访问域名 / 关键字 / 描述
+- 单文件最大体积（MB）、允许的扩展名
+- 上传前图片处理：`enabled` / `target_format` / `max_size_mb` / `max_width` / `max_height`
+- WebAuthn：`rpid` / `rporigin`（多行，每行一个完整来源）/ `rpname`
 
-# 产出：backend/hill-images-linux
-```
+修改后点击底部「保存设置」统一提交。
+
+### 8.2 存储驱动
+
+支持的驱动（前端显示 4 个，后端实际可用 3 个）：
+
+| 驱动 | 状态 | 配置项 |
+|------|------|--------|
+| `local` | 可用 | 根目录、子目录模板、访问域名 |
+| `r2` | 可用 | account_id / bucket / access_key / secret / endpoint / public_base_url |
+| `s3` | 可用 | endpoint / region / bucket / key / secret / public_base_url / key_prefix / thumb_prefix / path_style |
+| `upyun` | 仅兼容保留 | 后端不接受该驱动启动 |
+
+切换驱动后保存，建议用一张新图验证上传与访问链接。
+
+### 8.3 API Token（API 授权）
+
+给博客 / App / 工作流接入用。创建的是 **API Key（`app_` 前缀）**：
+
+- 每个 Key 有独立名称（命名空间）
+- 记录：上传次数、累计流量、最后使用、创建时间
+- 原始 Key 仅在创建成功时显示一次
+
+建议按应用拆分 Key（如 `BlogA` / `Obsidian`），不要多应用共用一个。
+
+### 8.4 用户管理（仅管理员）
+
+- 列表 / 创建 / 编辑（用户名、角色、重置密码）/ 删除
+- 不能删除当前自己登录的账号
+
+### 8.5 个人中心
+
+当前登录用户自己管理：
+
+- 基本信息：用户名（只读）、昵称（可改）
+- 修改密码（需输入当前密码）
+- Passkey 管理：绑定新设备 / 删除已有
+
+---
+
+## 9. Passkey 要点
+
+- **RP ID 与 Origin 必须和访问域名一致**。换域名后必须在「系统设置」里同步更新并重启服务，否则会报 `relying party ID 不匹配` / `registration verification failed`。
+- `webauthn.rporigin` 支持多行，每行一个完整来源（带协议），例如：
+  ```txt
+  https://images.example.com
+  https://img.example.com
+  ```
+- Passkey 永远绑定当前登录用户，不全局共享。
+
+---
+
+## 10. 常见场景
+
+**A. 日常上传**：登录 → 首页拖图 → 复制 Markdown / 直链 → 需要删 / 改名时去 `/files`。
+
+**B. 给博客接入**：管理员进「API Token」页 → 创建 Key → 配到博客脚本 → `POST /api/upload`，Header 用 `Authorization: Bearer app_xxx`。
+
+**C. 启用 Passkey**：密码登录 → 「个人中心」→ 绑定新设备 → 下次登录页直接用 Passkey。
+
+**D. 切到对象存储**：进「存储驱动」→ 选 `r2` 或 `s3` → 填凭证与 public_base_url → 保存 → 新图测试。
+
+---
+
+## 11. 常见问题
+
+**Q：首页为什么不能匿名上传？**
+当前产品选择要求登录后上传，不是故障。
+
+**Q：上传后链接为什么不是原始文件名？**
+对外链接被规范化，避免暴露原始文件名、路径与来源。
+
+**Q：API Key 上传和网页上传路径为什么不一样？**
+网页上传偏时间目录（`{year}/{month}`），API Key 上传偏应用目录（`{AppName}/{folder?}`），便于区分来源与统计。
+
+**Q：Passkey 换域名后失效？**
+Passkey 强依赖 RP ID / Origin，域名变了但配置没改就会失败。
+
+**Q：HEIC / DNG 为什么依赖系统工具？**
+这些格式的兼容处理与压缩质量更依赖成熟工具链，比纯前端或简单库转换更稳。

@@ -3,7 +3,7 @@
 ## 项目概述
 Go + React 图床系统。  
 数据库：SQLite（modernc.org/sqlite，纯 Go 实现，无 CGO 依赖）  
-前端：React 19 + Vite 8 + TypeScript 6 + Tailwind CSS + Material Design 3
+前端：React 19 + Vite 8 + TypeScript 6 + Tailwind CSS + shadcn/ui（Radix UI）
 
 ### 目录结构
 
