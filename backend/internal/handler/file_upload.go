@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"hill-images/internal/models"
@@ -40,18 +41,7 @@ func (h *FileHandler) Upload(c *gin.Context) {
 	}
 	defer file.Close()
 
-	contentType := header.Header.Get("Content-Type")
-	if guessed := mimeFromFilename(header.Filename); guessed != "application/octet-stream" {
-		if contentType == "" || contentType == "application/octet-stream" || !isAllowedUploadMIME(contentType) {
-			contentType = guessed
-		}
-	}
-	log.Printf("[upload] file=%s type=%s size=%d", header.Filename, contentType, header.Size)
-	if !isAllowedUploadMIME(contentType) {
-		fileError(c, http.StatusBadRequest, fmt.Sprintf("unsupported file type: %s", contentType), "INVALID_MIME")
-		return
-	}
-
+	// Read first so we can sniff content. Size is still capped by MaxBytesReader above.
 	data, err := io.ReadAll(file)
 	if err != nil {
 		log.Printf("[upload] read error: %v", err)
@@ -64,6 +54,15 @@ func (h *FileHandler) Upload(c *gin.Context) {
 		fileError(c, http.StatusRequestEntityTooLarge, "file too large (max 100MB)", "FILE_TOO_LARGE")
 		return
 	}
+
+	declared := header.Header.Get("Content-Type")
+	contentType, err := resolveUploadMIME(header.Filename, declared, data)
+	if err != nil {
+		log.Printf("[upload] mime reject file=%s declared=%s: %v", header.Filename, declared, err)
+		fileError(c, http.StatusBadRequest, err.Error(), "INVALID_MIME")
+		return
+	}
+	log.Printf("[upload] file=%s type=%s size=%d", header.Filename, contentType, len(data))
 
 	processCfg := h.readUploadClientConfig()
 	processedExt := ""
@@ -123,6 +122,12 @@ func (h *FileHandler) Upload(c *gin.Context) {
 		filename := storage.RandomTokenN(12) + ext
 		key, err = buildAPIKeyStorageKey(h.storage, appName, folder, filename)
 		if err != nil {
+			// Path sanitization failures are client errors, not server faults.
+			msg := err.Error()
+			if strings.Contains(msg, "invalid") || strings.Contains(msg, "folder") || strings.Contains(msg, "path") {
+				fileError(c, http.StatusBadRequest, msg, "INVALID_FOLDER")
+				return
+			}
 			fileError(c, http.StatusInternalServerError, "failed to build storage key", "KEY_BUILD_FAILED")
 			return
 		}

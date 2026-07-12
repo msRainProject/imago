@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -15,7 +16,98 @@ import (
 
 func isAllowedUploadMIME(mime string) bool {
 	mime = strings.ToLower(strings.TrimSpace(mime))
-	return (strings.HasPrefix(mime, "image/") && mime != "image/svg+xml") || mime == "application/x-adobe-dng"
+	switch mime {
+	case "image/jpeg", "image/png", "image/gif", "image/bmp", "image/webp", "image/x-icon", "image/vnd.microsoft.icon",
+		"image/heic", "image/heif", "image/x-adobe-dng", "image/dng", "application/x-adobe-dng":
+		return true
+	default:
+		return false
+	}
+}
+
+// resolveUploadMIME prefers magic-byte detection over the client-supplied
+// Content-Type / extension. HEIC/DNG are not reliably detected by
+// net/http.DetectContentType, so extension is used only for those known types
+// when the sniffed type is generic.
+func resolveUploadMIME(filename, declared string, data []byte) (string, error) {
+	if len(data) == 0 {
+		return "", fmt.Errorf("empty file")
+	}
+
+	sniffed := http.DetectContentType(data)
+	// DetectContentType returns "image/..." for common rasters; strip parameters.
+	if i := strings.Index(sniffed, ";"); i >= 0 {
+		sniffed = sniffed[:i]
+	}
+	sniffed = strings.ToLower(strings.TrimSpace(sniffed))
+
+	extMIME := mimeFromFilename(filename)
+	declared = strings.ToLower(strings.TrimSpace(declared))
+	if i := strings.Index(declared, ";"); i >= 0 {
+		declared = declared[:i]
+	}
+
+	// Hard-reject SVG even if mislabeled.
+	if sniffed == "image/svg+xml" || extMIME == "image/svg+xml" || declared == "image/svg+xml" {
+		return "", fmt.Errorf("svg uploads are not allowed")
+	}
+	if strings.HasPrefix(string(data[:minInt(len(data), 256)]), "<?xml") || strings.Contains(strings.ToLower(string(data[:minInt(len(data), 512)])), "<svg") {
+		// Cheap polyglot guard for SVG payloads starting as XML/text.
+		head := strings.ToLower(string(data[:minInt(len(data), 1024)]))
+		if strings.Contains(head, "<svg") {
+			return "", fmt.Errorf("svg uploads are not allowed")
+		}
+	}
+
+	candidates := []string{sniffed, extMIME, declared}
+	for _, cand := range candidates {
+		if isAllowedUploadMIME(cand) {
+			// If sniff says plain binary/text but ext is HEIC/DNG, allow the ext.
+			if sniffed == "application/octet-stream" || sniffed == "text/plain" {
+				if isHEICOrDNGMIME(extMIME) || isHEICOrDNGMIME(declared) {
+					if isAllowedUploadMIME(extMIME) {
+						return extMIME, nil
+					}
+					if isAllowedUploadMIME(declared) {
+						return declared, nil
+					}
+				}
+			}
+			// Prefer sniffed when it is a concrete allowed image type.
+			if isAllowedUploadMIME(sniffed) {
+				return sniffed, nil
+			}
+			return cand, nil
+		}
+	}
+
+	// HEIC/DNG often sniff as octet-stream.
+	if sniffed == "application/octet-stream" || sniffed == "text/plain" {
+		if isAllowedUploadMIME(extMIME) && isHEICOrDNGMIME(extMIME) {
+			return extMIME, nil
+		}
+		if isAllowedUploadMIME(declared) && isHEICOrDNGMIME(declared) {
+			return declared, nil
+		}
+	}
+
+	return "", fmt.Errorf("unsupported file type")
+}
+
+func isHEICOrDNGMIME(mime string) bool {
+	switch strings.ToLower(strings.TrimSpace(mime)) {
+	case "image/heic", "image/heif", "image/x-adobe-dng", "image/dng", "application/x-adobe-dng":
+		return true
+	default:
+		return false
+	}
+}
+
+func minInt(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 // maxUploadSize is 50 MB.
@@ -223,7 +315,15 @@ func (h *FileHandler) List(c *gin.Context) {
 }
 
 // Get handles GET /api/files/:hash — single image metadata.
+// Public pretty URLs remain unauthenticated by design; this API metadata
+// endpoint requires ownership (or admin) so hashes are not a cross-user oracle.
 func (h *FileHandler) Get(c *gin.Context) {
+	userID, exists := getUserID(c)
+	if !exists {
+		fileError(c, http.StatusUnauthorized, "unauthorized", "AUTH_FAILED")
+		return
+	}
+
 	hash := c.Param("hash")
 	if hash == "" {
 		fileError(c, http.StatusBadRequest, "missing hash", "VALIDATION_ERROR")
@@ -233,6 +333,11 @@ func (h *FileHandler) Get(c *gin.Context) {
 	img, err := h.imageService.GetByHash(hash)
 	if err != nil {
 		fileError(c, http.StatusNotFound, "image not found", "NOT_FOUND")
+		return
+	}
+
+	if img.UserID != userID && !isAdmin(c) {
+		fileError(c, http.StatusForbidden, "forbidden", "FORBIDDEN")
 		return
 	}
 

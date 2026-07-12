@@ -129,10 +129,8 @@ WantedBy=multi-user.target
 
 ## 安全说明
 
-Go 版本在设计上已避免此前 PHP 版本发现的所有漏洞：
-- 无 SQL 注入（GORM 参数化查询）
-- JWT 替代会话 Cookie
-- 存储路径遍历防护（realpath 校验）
-- WebAuthn 完整签名验证
-- CSRF token 机制
-- 速率限制（按 IP）
+详见 [SECURITY.md](SECURITY.md)。部署时务必：
+
+- 将 `jwt.secret` 换成 `openssl rand -hex 32`（启动会拒绝占位/过短密钥）
+- 生产设置 `GIN_MODE=release`
+- 公开注册仅首用户可用；之后用管理后台创建账号

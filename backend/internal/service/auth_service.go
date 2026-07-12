@@ -44,28 +44,70 @@ type UserResponse struct {
 	Role     string    `json:"role"`
 }
 
+// ErrRegistrationClosed is returned when public self-registration is no longer
+// allowed (any user already exists). The first account remains open so a fresh
+// install can bootstrap an admin.
+var ErrRegistrationClosed = errors.New("registration is closed; ask an administrator to create an account")
+
+// ErrWeakPassword is returned when a password fails the shared policy.
+var ErrWeakPassword = errors.New("password must be at least 8 characters")
+
+// MinPasswordLength is the shared minimum for register / change-password /
+// admin create-user paths.
+const MinPasswordLength = 8
+
+func ValidatePassword(password string) error {
+	if len(password) < MinPasswordLength {
+		return ErrWeakPassword
+	}
+	return nil
+}
+
 func (s *AuthService) Register(username, password string) (*RegisterResult, error) {
-	count, err := s.userRepo.Count()
-	if err != nil {
+	if err := ValidatePassword(password); err != nil {
 		return nil, err
 	}
 
-	role := "user"
-	if count == 0 {
-		role = "admin"
+	// Serialize first-user bootstrap so concurrent POSTs cannot both observe
+	// count==0 and both become admin. After the first user exists, reject
+	// further public registration — admins create accounts via /api/admin/users.
+	tx := s.db.Begin()
+	if tx.Error != nil {
+		return nil, tx.Error
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+			panic(r)
+		}
+	}()
+
+	var count int64
+	if err := tx.Model(&models.User{}).Count(&count).Error; err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+	if count > 0 {
+		tx.Rollback()
+		return nil, ErrRegistrationClosed
 	}
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcryptCost)
 	if err != nil {
+		tx.Rollback()
 		return nil, err
 	}
 
 	user := &models.User{
 		Username:     username,
 		PasswordHash: string(hash),
-		Role:         role,
+		Role:         "admin", // first (and only public) registration
 	}
-	if err := s.userRepo.Create(user); err != nil {
+	if err := tx.Create(user).Error; err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+	if err := tx.Commit().Error; err != nil {
 		return nil, err
 	}
 
@@ -132,8 +174,11 @@ func (s *AuthService) GenerateToken(user *models.User) (string, error) {
 
 func (s *AuthService) ParseToken(tokenStr string) (*Claims, error) {
 	token, err := jwt.ParseWithClaims(tokenStr, &Claims{}, func(t *jwt.Token) (interface{}, error) {
+		if t.Method != jwt.SigningMethodHS256 {
+			return nil, errors.New("unexpected signing method")
+		}
 		return []byte(s.cfg.Secret), nil
-	})
+	}, jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}))
 	if err != nil {
 		return nil, err
 	}

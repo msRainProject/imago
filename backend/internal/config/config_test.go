@@ -28,3 +28,15 @@ func TestWebAuthnConfigPrimaryOrigin(t *testing.T) {
 		t.Fatalf("PrimaryOrigin() = %q, want %q", got, want)
 	}
 }
+
+func TestValidateJWTSecret(t *testing.T) {
+	if err := ValidateJWTSecret("CHANGE_ME_TO_RANDOM_64_CHARS"); err == nil {
+		t.Fatal("expected placeholder rejection")
+	}
+	if err := ValidateJWTSecret("short"); err == nil {
+		t.Fatal("expected short secret rejection")
+	}
+	if err := ValidateJWTSecret("0123456789abcdef0123456789abcdef"); err != nil {
+		t.Fatalf("expected ok for 32-char secret: %v", err)
+	}
+}

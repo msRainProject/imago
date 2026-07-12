@@ -126,14 +126,16 @@ func main() {
 	r := gin.Default()
 	r.MaxMultipartMemory = 100 << 20 // 100 MB
 
+	r.Use(middleware.SecurityHeaders())
+
 	r.Use(cors.New(cors.Config{
 		AllowOriginFunc: func(origin string) bool {
 			// Always allow the configured WebAuthn RP origins from admin config.
 			if isConfiguredWebAuthnOrigin(origin, configRepo, cfg.WebAuthn) {
 				return true
 			}
-			// Allow private/dev origins: localhost, 127.0.0.1, 10.x, 172.16-31.x, 192.168.x
-			if isDevOrigin(origin) {
+			// Dev origins only when Gin is not in release mode (local development).
+			if gin.Mode() != gin.ReleaseMode && isDevOrigin(origin) {
 				return true
 			}
 			return false
@@ -144,8 +146,11 @@ func main() {
 		AllowCredentials: true,
 	}))
 
-	rateLimiter := middleware.NewRateLimiter(100, 60)
+	// Global soft limit. Login/register get a stricter dedicated limiter below.
+	// IMPORTANT: window is a time.Duration — always use time.Second (not bare int).
+	rateLimiter := middleware.NewRateLimiter(120, 60*time.Second)
 	r.Use(rateLimiter.Middleware())
+	authRateLimiter := middleware.NewRateLimiter(20, 60*time.Second)
 
 	r.GET("/api/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{
@@ -185,10 +190,10 @@ func main() {
 		// the conflict.
 		auth := api.Group("/auth")
 		{
-			// Public auth routes (no JWT required)
-			auth.POST("/register", authHandler.Register)
-			auth.POST("/login", authHandler.Login)
-			auth.POST("/refresh", authHandler.Refresh)
+			// Public auth routes (no JWT required). Stricter rate limit for brute-force resistance.
+			auth.POST("/register", authRateLimiter.Middleware(), authHandler.Register)
+			auth.POST("/login", authRateLimiter.Middleware(), authHandler.Login)
+			auth.POST("/refresh", authRateLimiter.Middleware(), authHandler.Refresh)
 
 			// Protected auth routes (JWT required — middleware applied per-route)
 			auth.POST("/logout", middleware.JWTAuth(authService), authHandler.Logout)
@@ -201,8 +206,8 @@ func main() {
 			auth.DELETE("/webauthn/credentials/:id", middleware.JWTAuth(authService), authHandler.DeletePasskeyCredential)
 
 			// WebAuthn login (public — no JWT required)
-			auth.GET("/webauthn/login/challenge", authHandler.WebAuthnLoginChallenge)
-			auth.POST("/webauthn/login/verify", authHandler.WebAuthnLoginVerify)
+			auth.GET("/webauthn/login/challenge", authRateLimiter.Middleware(), authHandler.WebAuthnLoginChallenge)
+			auth.POST("/webauthn/login/verify", authRateLimiter.Middleware(), authHandler.WebAuthnLoginVerify)
 		}
 
 		images := api.Group("/images")

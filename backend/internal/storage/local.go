@@ -452,13 +452,30 @@ func yearSegmentFromKey(key string) (string, bool) {
 
 // BuildAPIKey builds a storage key for API key uploads: {appName}/{folder?}/{filename}.
 // No year/month segments — the app name is the top-level directory.
+// Callers should pre-sanitize; this method re-validates as a defense in depth.
 func (s *LocalStorage) BuildAPIKey(appName, folder, filename string) (string, error) {
-	parts := []string{appName}
-	if folder != "" {
-		parts = append(parts, folder)
+	safeApp, err := SanitizePathSegment(appName)
+	if err != nil {
+		return "", err
+	}
+	safeFolder, err := SanitizeFolderPath(folder)
+	if err != nil {
+		return "", err
+	}
+	if strings.ContainsAny(filename, `/\`) || strings.Contains(filename, "..") || filename == "" {
+		return "", fmt.Errorf("invalid filename")
+	}
+	parts := []string{safeApp}
+	if safeFolder != "" {
+		parts = append(parts, strings.Split(safeFolder, "/")...)
 	}
 	parts = append(parts, filename)
-	return filepath.ToSlash(filepath.Join(parts...)), nil
+	key := filepath.ToSlash(filepath.Join(parts...))
+	// Final boundary check against basePath for local driver.
+	if _, err := safePath(s.basePath, key); err != nil {
+		return "", err
+	}
+	return key, nil
 }
 
 // IsAPIKey returns true if the storage key starts with a non-year segment,

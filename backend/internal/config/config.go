@@ -157,6 +157,39 @@ type S3Config struct {
 	UsePathStyle    bool   `mapstructure:"use_path_style"`
 }
 
+// knownWeakJWTSecrets are placeholder values that must never ship to production.
+var knownWeakJWTSecrets = map[string]struct{}{
+	"":                             {},
+	"CHANGE_ME_TO_RANDOM_64_CHARS": {},
+	"change_me":                    {},
+	"secret":                       {},
+	"jwt_secret":                   {},
+	"your-secret-here":             {},
+	"changeme":                     {},
+}
+
+// ValidateJWTSecret rejects empty, short, or known-placeholder signing keys.
+// HS256 secrets shorter than 32 bytes are considered too weak for production.
+func ValidateJWTSecret(secret string) error {
+	trimmed := strings.TrimSpace(secret)
+	if _, weak := knownWeakJWTSecrets[trimmed]; weak {
+		return fmt.Errorf("jwt.secret is empty or a known placeholder — set a random value of at least 32 characters in config.yaml")
+	}
+	if len(trimmed) < 32 {
+		return fmt.Errorf("jwt.secret must be at least 32 characters (got %d)", len(trimmed))
+	}
+	lower := strings.ToLower(trimmed)
+	for weak := range knownWeakJWTSecrets {
+		if weak != "" && strings.ToLower(weak) == lower {
+			return fmt.Errorf("jwt.secret is a known placeholder — set a random value of at least 32 characters in config.yaml")
+		}
+	}
+	if strings.Contains(lower, "change_me") || strings.Contains(lower, "changeme") {
+		return fmt.Errorf("jwt.secret looks like a placeholder — set a random value of at least 32 characters in config.yaml")
+	}
+	return nil
+}
+
 // Load reads config.yaml from the directory containing the running binary,
 // falling back to the current working directory.
 func Load() (*Config, error) {
@@ -186,6 +219,13 @@ func Load() (*Config, error) {
 	var cfg Config
 	if err := v.Unmarshal(&cfg); err != nil {
 		return nil, fmt.Errorf("unmarshal config: %w", err)
+	}
+
+	if err := ValidateJWTSecret(cfg.JWT.Secret); err != nil {
+		return nil, err
+	}
+	if cfg.JWT.ExpiryHours < 1 {
+		cfg.JWT.ExpiryHours = 24
 	}
 
 	return &cfg, nil

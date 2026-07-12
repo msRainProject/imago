@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 	"unicode/utf8"
 
@@ -150,7 +151,16 @@ func (h *AuthHandler) Register(c *gin.Context) {
 
 	result, err := h.authService.Register(req.Username, req.Password)
 	if err != nil {
-		errorResponse(c, http.StatusInternalServerError, err.Error(), "REGISTER_FAILED")
+		if errors.Is(err, service.ErrRegistrationClosed) {
+			errorResponse(c, http.StatusForbidden, err.Error(), "REGISTRATION_CLOSED")
+			return
+		}
+		if errors.Is(err, service.ErrWeakPassword) {
+			errorResponse(c, http.StatusBadRequest, err.Error(), "VALIDATION_ERROR")
+			return
+		}
+		// Username unique violation and other create failures surface as 400/500.
+		errorResponse(c, http.StatusInternalServerError, "registration failed", "REGISTER_FAILED")
 		return
 	}
 
@@ -174,16 +184,23 @@ func (h *AuthHandler) Login(c *gin.Context) {
 }
 
 func (h *AuthHandler) Logout(c *gin.Context) {
+	// Always re-parse with full signature verification. Never blacklist claims
+	// from ParseTokenUnverified — that would let callers inject arbitrary JTIs
+	// if the route middleware is ever loosened.
 	authHeader := c.GetHeader("Authorization")
-	if len(authHeader) < 7 {
+	parts := strings.SplitN(authHeader, " ", 2)
+	if len(parts) != 2 || !strings.EqualFold(parts[0], "bearer") || parts[1] == "" {
 		errorResponse(c, http.StatusUnauthorized, "missing or invalid authorization header", "AUTH_FAILED")
 		return
 	}
-	tokenStr := authHeader[7:]
 
-	claims, err := h.authService.ParseTokenUnverified(tokenStr)
+	claims, err := h.authService.ParseToken(parts[1])
 	if err != nil {
 		errorResponse(c, http.StatusUnauthorized, "invalid token", "AUTH_FAILED")
+		return
+	}
+	if claims.ID == "" || claims.ExpiresAt == nil {
+		errorResponse(c, http.StatusUnauthorized, "invalid token claims", "AUTH_FAILED")
 		return
 	}
 
@@ -269,9 +286,14 @@ func (h *AuthHandler) WebAuthnRegisterVerify(c *gin.Context) {
 		return
 	}
 
-	session, _, sessionCfg := h.webauthnService.GetRegistrationSession(sessionKey)
+	session, sessionUserID, sessionCfg := h.webauthnService.GetRegistrationSession(sessionKey)
 	if session == nil {
 		errorResponse(c, http.StatusBadRequest, "invalid or expired session", "SESSION_EXPIRED")
+		return
+	}
+	if sessionUserID != user.ID {
+		h.webauthnService.DeleteRegistrationSession(sessionKey)
+		errorResponse(c, http.StatusForbidden, "session does not belong to current user", "SESSION_MISMATCH")
 		return
 	}
 
@@ -586,7 +608,7 @@ func (h *AuthHandler) UpdateProfile(c *gin.Context) {
 
 type changePasswordRequest struct {
 	CurrentPassword string `json:"current_password" binding:"required"`
-	NewPassword     string `json:"new_password" binding:"required,min=6"`
+	NewPassword     string `json:"new_password" binding:"required,min=8"`
 }
 
 // ChangePassword handles PUT /api/auth/password.
@@ -605,7 +627,11 @@ func (h *AuthHandler) ChangePassword(c *gin.Context) {
 
 	var req changePasswordRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		errorResponse(c, http.StatusBadRequest, "current_password and new_password (min 6 chars) are required", "VALIDATION_ERROR")
+		errorResponse(c, http.StatusBadRequest, "current_password and new_password (min 8 chars) are required", "VALIDATION_ERROR")
+		return
+	}
+	if err := service.ValidatePassword(req.NewPassword); err != nil {
+		errorResponse(c, http.StatusBadRequest, err.Error(), "VALIDATION_ERROR")
 		return
 	}
 
@@ -620,7 +646,7 @@ func (h *AuthHandler) ChangePassword(c *gin.Context) {
 		return
 	}
 
-	hash, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
+	hash, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), 12)
 	if err != nil {
 		errorResponse(c, http.StatusInternalServerError, "failed to hash password", "INTERNAL_ERROR")
 		return

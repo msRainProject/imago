@@ -3,6 +3,7 @@ package handler
 import (
 	"fmt"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"hill-images/internal/storage"
@@ -25,12 +26,24 @@ func buildStorageKey(s storage.Storage, originalName, hash, ext string, now time
 }
 
 func buildAPIKeyStorageKey(s storage.Storage, appName, folder, filename string) (string, error) {
-	if local, ok := s.(*storage.LocalStorage); ok {
-		return local.BuildAPIKey(appName, folder, filename)
+	safeApp, err := storage.SanitizePathSegment(appName)
+	if err != nil {
+		return "", fmt.Errorf("invalid api key name for storage path: %w", err)
 	}
-	parts := []string{appName}
-	if folder != "" {
-		parts = append(parts, folder)
+	safeFolder, err := storage.SanitizeFolderPath(folder)
+	if err != nil {
+		return "", fmt.Errorf("invalid folder: %w", err)
+	}
+	// filename is server-generated (random + ext); still reject separators.
+	if strings.ContainsAny(filename, `/\`) || strings.Contains(filename, "..") {
+		return "", fmt.Errorf("invalid filename")
+	}
+	if local, ok := s.(*storage.LocalStorage); ok {
+		return local.BuildAPIKey(safeApp, safeFolder, filename)
+	}
+	parts := []string{safeApp}
+	if safeFolder != "" {
+		parts = append(parts, strings.Split(safeFolder, "/")...)
 	}
 	parts = append(parts, filename)
 	return filepath.ToSlash(filepath.Join(parts...)), nil

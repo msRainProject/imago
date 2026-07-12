@@ -53,7 +53,7 @@ func (h *AdminHandler) ListUsers(c *gin.Context) {
 
 type createUserRequest struct {
 	Username    string  `json:"username" binding:"required"`
-	Password    string  `json:"password" binding:"required,min=6"`
+	Password    string  `json:"password" binding:"required,min=8"`
 	Role        string  `json:"role" binding:"required,oneof=admin user"`
 	DisplayName *string `json:"display_name"`
 }
@@ -72,7 +72,11 @@ func (h *AdminHandler) CreateUser(c *gin.Context) {
 		return
 	}
 
-	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	if len(req.Password) < 8 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "password must be at least 8 characters", "code": "ERR_VALIDATION"})
+		return
+	}
+	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), 12)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to hash password"})
 		return
@@ -131,7 +135,11 @@ func (h *AdminHandler) UpdateUser(c *gin.Context) {
 		user.Username = *req.Username
 	}
 	if req.Password != nil {
-		hash, err := bcrypt.GenerateFromPassword([]byte(*req.Password), bcrypt.DefaultCost)
+		if len(*req.Password) < 8 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "password must be at least 8 characters", "code": "ERR_VALIDATION"})
+			return
+		}
+		hash, err := bcrypt.GenerateFromPassword([]byte(*req.Password), 12)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to hash password"})
 			return
@@ -313,6 +321,12 @@ func (h *AdminHandler) CreateAPIKey(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "code": "ERR_VALIDATION"})
 		return
 	}
+	// Name becomes a storage namespace prefix — reject path-like values early.
+	req.Name = strings.TrimSpace(req.Name)
+	if req.Name == "" || strings.ContainsAny(req.Name, `/\`) || strings.Contains(req.Name, "..") {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid api key name", "code": "ERR_VALIDATION"})
+		return
+	}
 
 	b := make([]byte, 16)
 	if _, err := rand.Read(b); err != nil {
@@ -407,6 +421,23 @@ func (h *AdminHandler) GetConfig(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"code": 200, "data": data})
 }
 
+// allowedConfigKeys is the set of keys the admin UI may create or update.
+// Unknown keys are rejected to prevent arbitrary config pollution.
+var allowedConfigKeys = map[string]bool{
+	"title": true, "domain": true, "imgurl": true, "maxSize": true, "allowedExt": true,
+	"upload.process.enabled": true, "upload.process.target_format": true,
+	"upload.process.max_size_mb": true, "upload.process.max_width": true, "upload.process.max_height": true,
+	"storage.driver": true, "storage.path": true,
+	"storage.local.path_template": true, "storage.local.public_base_url": true,
+	"upyun.bucket": true, "upyun.operator": true, "upyun.password": true, "upyun.endpoint": true, "upyun.domain": true,
+	"r2.account_id": true, "r2.bucket": true, "r2.access_key_id": true, "r2.secret_access_key": true,
+	"r2.public_base_url": true, "r2.region": true,
+	"s3.endpoint": true, "s3.region": true, "s3.bucket": true, "s3.access_key_id": true,
+	"s3.secret_access_key": true, "s3.public_base_url": true, "s3.key_prefix": true,
+	"s3.thumb_prefix": true, "s3.use_path_style": true,
+	"webauthn.rpid": true, "webauthn.rporigin": true, "webauthn.rpname": true,
+}
+
 // UpdateConfig handles PUT /api/admin/config.
 func (h *AdminHandler) UpdateConfig(c *gin.Context) {
 	var updates map[string]string
@@ -415,14 +446,19 @@ func (h *AdminHandler) UpdateConfig(c *gin.Context) {
 		return
 	}
 
-	for key := range updates {
+	for key, value := range updates {
 		if readOnlyKeys[key] {
 			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("key %s is read-only", key), "code": "ERR_READ_ONLY"})
 			return
 		}
-	}
-
-	for key, value := range updates {
+		if !allowedConfigKeys[key] {
+			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("key %s is not allowed", key), "code": "ERR_VALIDATION"})
+			return
+		}
+		// Frontend may echo masked secrets as "***" — treat as "leave unchanged".
+		if sensitiveKeys[key] && (value == "***" || value == "") {
+			continue
+		}
 		existing, err := h.configRepo.FindByKey(key)
 		if err != nil {
 			if err == gorm.ErrRecordNotFound {
