@@ -40,7 +40,7 @@ function isWebAuthnSupported(): boolean {
  * Hill Images — login page.
  *
  * Two authentication paths:
- *   1. Password — POST /api/auth/login → store JWT in localStorage.
+ *   1. Password — POST /api/auth/login → HttpOnly session cookie + user profile.
  *   2. Passkey — fetchLoginChallenge → navigator.credentials.get()
  *      → verifyLogin(credential, session_key) → store JWT.
  */

@@ -88,7 +88,8 @@ func (h *FileHandler) Upload(c *gin.Context) {
 
 	hash := fmt.Sprintf("%x", sha256.Sum256(data))
 
-	if existing, found := h.imageService.HashExists(hash); found {
+	// Same-user dedup: return the caller's own existing record.
+	if existing, found := h.imageService.HashExistsForUser(userID, hash); found {
 		fileSuccess(c, gin.H{
 			"hash":   existing.Hash,
 			"url":    storageResponseURL(h.storage, existing.Path, existing.Hash),
@@ -98,6 +99,10 @@ func (h *FileHandler) Upload(c *gin.Context) {
 		})
 		return
 	}
+
+	// Cross-user: reuse the stored blob path so we don't write duplicate bytes,
+	// but still create a new ownership row for this user.
+	sharedBlob, hasSharedBlob := h.imageService.AnyHashExists(hash)
 
 	now := time.Now()
 	ext := processedExt
@@ -145,12 +150,31 @@ func (h *FileHandler) Upload(c *gin.Context) {
 		}
 	}
 
-	if err := h.storage.Save(c.Request.Context(), key, bytes.NewReader(data), contentType); err != nil {
-		fileError(c, http.StatusInternalServerError, "failed to save file", "SAVE_FAILED")
-		return
+	// If another user already hosts identical bytes, point this ownership row at
+	// their storage key instead of writing a second copy.
+	savedNewBlob := false
+	if hasSharedBlob {
+		key = sharedBlob.Path
+		if sharedBlob.MimeType != "" {
+			contentType = sharedBlob.MimeType
+		}
+	} else {
+		if err := h.storage.Save(c.Request.Context(), key, bytes.NewReader(data), contentType); err != nil {
+			fileError(c, http.StatusInternalServerError, "failed to save file", "SAVE_FAILED")
+			return
+		}
+		savedNewBlob = true
 	}
 
 	width, height := extractDimensions(data, contentType)
+	if hasSharedBlob {
+		if sharedBlob.Width > 0 {
+			width = sharedBlob.Width
+		}
+		if sharedBlob.Height > 0 {
+			height = sharedBlob.Height
+		}
+	}
 
 	img := &models.Image{
 		UserID:        userID,
@@ -164,10 +188,20 @@ func (h *FileHandler) Upload(c *gin.Context) {
 		Height:        height,
 		StorageDriver: h.storage.Driver(),
 	}
+	if hasSharedBlob && sharedBlob.StorageDriver != "" {
+		img.StorageDriver = sharedBlob.StorageDriver
+		img.Size = sharedBlob.Size
+		if sharedBlob.ThumbPath != "" {
+			img.ThumbPath = sharedBlob.ThumbPath
+		}
+	}
 
 	if err := h.imageService.Create(img); err != nil {
-		if existing, found := h.imageService.HashExists(hash); found {
-			_ = h.storage.Delete(c.Request.Context(), key)
+		// Race: this user may have just inserted the same hash.
+		if existing, found := h.imageService.HashExistsForUser(userID, hash); found {
+			if savedNewBlob {
+				_ = h.storage.Delete(c.Request.Context(), key)
+			}
 			fileSuccess(c, gin.H{
 				"hash":   existing.Hash,
 				"url":    storageResponseURL(h.storage, existing.Path, existing.Hash),
@@ -177,7 +211,9 @@ func (h *FileHandler) Upload(c *gin.Context) {
 			})
 			return
 		}
-		_ = h.storage.Delete(c.Request.Context(), key)
+		if savedNewBlob {
+			_ = h.storage.Delete(c.Request.Context(), key)
+		}
 		fileError(c, http.StatusInternalServerError, "failed to create image record", "DB_ERROR")
 		return
 	}

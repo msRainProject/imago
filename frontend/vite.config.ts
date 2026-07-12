@@ -26,6 +26,17 @@ export default defineConfig({
         target: 'http://localhost:8081',
         changeOrigin: true,
         secure: false,
+        // Forward Set-Cookie from the Go backend to the Vite origin so
+        // HttpOnly session + CSRF cookies work in local development.
+        configure: (proxy) => {
+          proxy.on('proxyRes', (proxyRes) => {
+            const cookies = proxyRes.headers['set-cookie'];
+            if (!cookies) return;
+            proxyRes.headers['set-cookie'] = cookies.map((c) =>
+              c.replace(/;\s*Secure/gi, '').replace(/;\s*Domain=[^;]+/gi, ''),
+            );
+          });
+        },
       },
     },
   },

@@ -3,6 +3,7 @@ import { Image as ImageIcon, LogIn, LogOut, Search, Settings } from 'lucide-reac
 import { Button } from '@/components/ui/button';
 import CommandPalette from '@/components/CommandPalette';
 import { isAuthenticated, isAdmin, clearAuth } from '@/utils/auth';
+import { apiPost } from '@api/client';
 import { cn } from '@/lib/utils';
 import { t } from '@/i18n/strings';
 
@@ -13,7 +14,12 @@ export default function AppLayout() {
   const admin = isAdmin();
   const isLoginPage = location.pathname === '/login';
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await apiPost('/api/auth/logout');
+    } catch {
+      // still clear client state even if the network call fails
+    }
     clearAuth();
     navigate('/login', { replace: true });
   };

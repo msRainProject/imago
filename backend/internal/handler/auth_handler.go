@@ -10,6 +10,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"hill-images/internal/middleware"
 	"hill-images/internal/models"
 	"hill-images/internal/service"
 
@@ -28,6 +29,29 @@ func NewAuthHandler(authService *service.AuthService, webauthnService *service.W
 		authService:     authService,
 		webauthnService: webauthnService,
 	}
+}
+
+// issueSession sets the HttpOnly JWT cookie + CSRF cookie and returns the
+// response payload. The token is still included in JSON for API/CLI clients
+// that prefer Bearer auth; the browser UI should rely on the cookie.
+func (h *AuthHandler) issueSession(c *gin.Context, token string, user service.UserResponse) {
+	expiry := 24 * time.Hour
+	middleware.SetSessionCookie(c, token, expiry)
+	middleware.EnsureCSRFCookie(c)
+	successResponse(c, gin.H{
+		"token": token,
+		"user":  user,
+	})
+}
+
+func (h *AuthHandler) issueSessionCreated(c *gin.Context, token string, user service.UserResponse) {
+	expiry := 24 * time.Hour
+	middleware.SetSessionCookie(c, token, expiry)
+	middleware.EnsureCSRFCookie(c)
+	createdResponse(c, gin.H{
+		"token": token,
+		"user":  user,
+	})
 }
 
 type registerRequest struct {
@@ -164,7 +188,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		return
 	}
 
-	createdResponse(c, result)
+	h.issueSessionCreated(c, result.Token, result.User)
 }
 
 func (h *AuthHandler) Login(c *gin.Context) {
@@ -180,21 +204,35 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
-	successResponse(c, result)
+	h.issueSession(c, result.Token, result.User)
 }
 
 func (h *AuthHandler) Logout(c *gin.Context) {
-	// Always re-parse with full signature verification. Never blacklist claims
-	// from ParseTokenUnverified — that would let callers inject arbitrary JTIs
-	// if the route middleware is ever loosened.
-	authHeader := c.GetHeader("Authorization")
-	parts := strings.SplitN(authHeader, " ", 2)
-	if len(parts) != 2 || !strings.EqualFold(parts[0], "bearer") || parts[1] == "" {
+	// Prefer the token already validated by JWTAuth (Bearer or session cookie).
+	tokenStr := ""
+	if v, ok := c.Get("auth_token"); ok {
+		if s, ok := v.(string); ok {
+			tokenStr = s
+		}
+	}
+	if tokenStr == "" {
+		authHeader := c.GetHeader("Authorization")
+		parts := strings.SplitN(authHeader, " ", 2)
+		if len(parts) == 2 && strings.EqualFold(parts[0], "bearer") {
+			tokenStr = parts[1]
+		}
+	}
+	if tokenStr == "" {
+		if cookie, err := c.Cookie(middleware.SessionCookie); err == nil {
+			tokenStr = cookie
+		}
+	}
+	if tokenStr == "" {
 		errorResponse(c, http.StatusUnauthorized, "missing or invalid authorization header", "AUTH_FAILED")
 		return
 	}
 
-	claims, err := h.authService.ParseToken(parts[1])
+	claims, err := h.authService.ParseToken(tokenStr)
 	if err != nil {
 		errorResponse(c, http.StatusUnauthorized, "invalid token", "AUTH_FAILED")
 		return
@@ -209,6 +247,8 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 		return
 	}
 
+	middleware.ClearSessionCookie(c)
+	middleware.ClearCSRFCookie(c)
 	successResponse(c, gin.H{"message": "logged out"})
 }
 
@@ -415,13 +455,10 @@ func (h *AuthHandler) WebAuthnLoginVerify(c *gin.Context) {
 	}
 
 	h.webauthnService.DeleteAssertionSession(sessionKey)
-	successResponse(c, gin.H{
-		"token": token,
-		"user": gin.H{
-			"id":       user.ID,
-			"username": user.Username,
-			"role":     user.Role,
-		},
+	h.issueSession(c, token, service.UserResponse{
+		ID:       user.ID,
+		Username: user.Username,
+		Role:     user.Role,
 	})
 }
 

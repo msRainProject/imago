@@ -9,8 +9,8 @@ import (
 
 type Image struct {
 	ID            uuid.UUID      `gorm:"type:varchar(36);primaryKey" json:"id"`
-	UserID        uuid.UUID      `gorm:"type:varchar(36);index;not null" json:"user_id"`
-	Hash          string         `gorm:"type:varchar(64);uniqueIndex;not null" json:"hash"`
+	UserID        uuid.UUID      `gorm:"type:varchar(36);not null;uniqueIndex:idx_images_user_hash;index" json:"user_id"`
+	Hash          string         `gorm:"type:varchar(64);not null;uniqueIndex:idx_images_user_hash;index" json:"hash"`
 	Filename      string         `gorm:"type:varchar(255);not null" json:"filename"`
 	OriginalName  string         `gorm:"type:varchar(255);not null" json:"original_name"`
 	Path          string         `gorm:"type:varchar(512);not null" json:"path"`

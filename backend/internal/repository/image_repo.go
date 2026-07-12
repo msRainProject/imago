@@ -40,7 +40,8 @@ func (r *ImageRepo) FindByHash(hash string) (*models.Image, error) {
 	return &image, nil
 }
 
-// FindActiveByHash retrieves an active (non-soft-deleted) image by its content hash.
+// FindActiveByHash retrieves any active image with the given content hash
+// (any owner). Used only for storage blob reuse, not ownership checks.
 func (r *ImageRepo) FindActiveByHash(hash string) (*models.Image, error) {
 	var image models.Image
 	if err := r.db.Where("hash = ? AND deleted_at IS NULL", hash).First(&image).Error; err != nil {
@@ -49,10 +50,32 @@ func (r *ImageRepo) FindActiveByHash(hash string) (*models.Image, error) {
 	return &image, nil
 }
 
-// HardDeleteByHash permanently removes a soft-deleted image by hash so the
-// unique constraint is freed for a re-upload.
+// FindActiveByUserAndHash retrieves an active image owned by userID with hash.
+func (r *ImageRepo) FindActiveByUserAndHash(userID uuid.UUID, hash string) (*models.Image, error) {
+	var image models.Image
+	if err := r.db.Where("user_id = ? AND hash = ? AND deleted_at IS NULL", userID, hash).First(&image).Error; err != nil {
+		return nil, err
+	}
+	return &image, nil
+}
+
+// HardDeleteByUserAndHash permanently removes a soft-deleted row for this user
+// so the composite unique (user_id, hash) is freed for re-upload.
+func (r *ImageRepo) HardDeleteByUserAndHash(userID uuid.UUID, hash string) error {
+	return r.db.Unscoped().Where("user_id = ? AND hash = ? AND deleted_at IS NOT NULL", userID, hash).Delete(&models.Image{}).Error
+}
+
+// HardDeleteByHash permanently removes soft-deleted rows for a hash (any user).
+// Kept for admin cleanup paths.
 func (r *ImageRepo) HardDeleteByHash(hash string) error {
 	return r.db.Unscoped().Where("hash = ? AND deleted_at IS NOT NULL", hash).Delete(&models.Image{}).Error
+}
+
+// CountActiveByHash returns how many non-deleted ownership rows share a hash.
+func (r *ImageRepo) CountActiveByHash(hash string) (int64, error) {
+	var count int64
+	err := r.db.Model(&models.Image{}).Where("hash = ? AND deleted_at IS NULL", hash).Count(&count).Error
+	return count, err
 }
 
 // FindLocalCandidatesByYearAndHashPrefix retrieves local-storage images whose

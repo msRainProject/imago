@@ -8,7 +8,7 @@ import AdminConsolePage from '@pages/AdminConsolePage';
 import AdminFilesPage from '@pages/AdminFilesPage';
 import LoginPage from '@pages/LoginPage';
 import { ToastProvider } from '@hooks/useToast';
-import { isAuthenticated } from '@/utils/auth';
+import { isAuthenticated, migrateAuthStorage } from '@/utils/auth';
 
 /**
  * Auth guard: redirects unauthenticated users to /login,
@@ -91,13 +91,8 @@ export default function App() {
   // On app load, validate token existence. If token exists but is expired,
   // the API will return 401 and the client interceptor will handle it.
   useEffect(() => {
-    // Check if token exists; if not and we're on a protected route,
-    // the AuthGuard will redirect.
-    const token = localStorage.getItem('hill_token');
-    if (token) {
-      // Token exists — we trust it until an API call fails with 401.
-      // The JWT interceptor in client.ts attaches it automatically.
-    }
+    // Drop legacy localStorage JWTs; session is now an HttpOnly cookie.
+    migrateAuthStorage();
   }, []);
 
   return (

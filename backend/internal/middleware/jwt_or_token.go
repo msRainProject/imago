@@ -12,18 +12,16 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// JWTOrAPIToken accepts either a Bearer JWT, an X-API-Token header (hill_ tokens),
-// or an Authorization: Bearer app_<hex> API key.
+// JWTOrAPIToken accepts either a Bearer JWT, a session cookie JWT,
+// an X-API-Token header (hill_ tokens), or an Authorization: Bearer app_<hex> API key.
 func JWTOrAPIToken(authService *service.AuthService, apiTokenRepo *repository.APITokenRepo, apiKeyRepo *repository.APIKeyRepo, userRepo *repository.UserRepo) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// Try Authorization: Bearer <jwt>
 		authHeader := c.GetHeader("Authorization")
 		if authHeader != "" {
 			parts := strings.SplitN(authHeader, " ", 2)
 			if len(parts) == 2 && strings.EqualFold(parts[0], "bearer") {
-				token := parts[1]
+				token := strings.TrimSpace(parts[1])
 
-				// Check if this is an app_ API key
 				if strings.HasPrefix(token, "app_") {
 					hash := sha256.Sum256([]byte(token))
 					tokenHash := hex.EncodeToString(hash[:])
@@ -45,15 +43,28 @@ func JWTOrAPIToken(authService *service.AuthService, apiTokenRepo *repository.AP
 					return
 				}
 
-				// Regular JWT
 				claims, err := authService.ParseToken(token)
 				if err == nil {
 					c.Set("user_id", claims.UserID)
 					c.Set("username", claims.Username)
 					c.Set("role", claims.Role)
+					c.Set("auth_token", token)
 					c.Next()
 					return
 				}
+			}
+		}
+
+		// Session cookie JWT (browser UI).
+		if cookie, err := c.Cookie(SessionCookie); err == nil && cookie != "" {
+			claims, err := authService.ParseToken(cookie)
+			if err == nil {
+				c.Set("user_id", claims.UserID)
+				c.Set("username", claims.Username)
+				c.Set("role", claims.Role)
+				c.Set("auth_token", cookie)
+				c.Next()
+				return
 			}
 		}
 

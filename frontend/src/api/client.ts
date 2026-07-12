@@ -1,30 +1,33 @@
 import axios, { AxiosError, type AxiosInstance, type AxiosRequestConfig } from 'axios';
 import type { ApiError, ApiResponse } from './types';
+import { clearAuth, getCsrfToken } from '@/utils/auth';
 
 /**
  * Axios client for the Go backend API.
  *
  * - Relative baseURL inherits the Vite dev proxy and production origin.
- * - JWT interceptor: attaches `Authorization: Bearer <hill_token>` from
- *   localStorage to every request.
+ * - Session auth: HttpOnly `hill_session` cookie (withCredentials).
+ * - CSRF: double-submit `hill_csrf` cookie → `X-CSRF-Token` header on mutations.
  * - Error mapping: Go backend returns `{"code":400,"error":"ERR_CODE","message":"..."}`.
  */
 export const http: AxiosInstance = axios.create({
   baseURL: '',
   timeout: 30_000,
+  withCredentials: true,
   headers: {
     Accept: 'application/json',
   },
 });
 
-/* ----------------------------- JWT interceptor -------------------------- */
-
-const TOKEN_KEY = 'hill_token';
+/* ----------------------------- CSRF interceptor ------------------------- */
 
 http.interceptors.request.use((config) => {
-  const token = typeof localStorage !== 'undefined' ? localStorage.getItem(TOKEN_KEY) : null;
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+  const method = (config.method ?? 'get').toUpperCase();
+  if (method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS') {
+    const csrf = getCsrfToken();
+    if (csrf) {
+      config.headers['X-CSRF-Token'] = csrf;
+    }
   }
   return config;
 });
@@ -52,6 +55,9 @@ http.interceptors.response.use(
   (err: AxiosError<ApiError>) => {
     if (err.response) {
       const { status, data } = err.response;
+      if (status === 401) {
+        clearAuth();
+      }
       const message = data?.message ?? err.message ?? 'Request failed';
       const code = data?.code ?? status;
       const error_code = data?.error ?? '';
@@ -139,46 +145,26 @@ export async function apiPatch<T>(url: string, body?: unknown, config?: AxiosReq
 
 /* --------------------- Raw helpers (no envelope expected) ---------------- */
 
-/**
- * Like apiGet, but returns the response body directly without checking for
- * a `{code, data}` envelope. Use for endpoints that return bare JSON objects.
- */
 export async function rawGet<T>(url: string, config?: AxiosRequestConfig): Promise<T> {
   const { data } = await http.get<T>(url, config);
   return data;
 }
 
-/**
- * Like apiPost, but returns the response body directly without checking for
- * a `{code, data}` envelope. Use for endpoints that return bare JSON objects.
- */
 export async function rawPost<T>(url: string, body?: unknown, config?: AxiosRequestConfig): Promise<T> {
   const { data } = await http.post<T>(url, body, config);
   return data;
 }
 
-/**
- * Like apiPut, but returns the response body directly without checking for
- * a `{code, data}` envelope.
- */
 export async function rawPut<T>(url: string, body?: unknown, config?: AxiosRequestConfig): Promise<T> {
   const { data } = await http.put<T>(url, body, config);
   return data;
 }
 
-/**
- * Like apiPatch, but returns the response body directly without checking for
- * a `{code, data}` envelope.
- */
 export async function rawPatch<T>(url: string, body?: unknown, config?: AxiosRequestConfig): Promise<T> {
   const { data } = await http.patch<T>(url, body, config);
   return data;
 }
 
-/**
- * Like apiDelete, but returns the response body directly without checking for
- * a `{code, data}` envelope.
- */
 export async function rawDelete<T>(url: string, config?: AxiosRequestConfig): Promise<T> {
   const { data } = await http.delete<T>(url, config);
   return data;

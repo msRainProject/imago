@@ -146,6 +146,14 @@ func (s *ImageService) Rename(hash string, newName string) (*models.Image, error
 	if err != nil {
 		return nil, err
 	}
+	return s.RenameByID(img.ID, newName)
+}
+
+func (s *ImageService) RenameByID(id uuid.UUID, newName string) (*models.Image, error) {
+	img, err := s.imageRepo.FindByID(id)
+	if err != nil {
+		return nil, err
+	}
 	img.OriginalName = newName
 	img.Filename = newName
 	if err := s.imageRepo.Update(img); err != nil {
@@ -193,14 +201,14 @@ func (s *StatsService) Get() (*StatsResult, error) {
 	}, nil
 }
 
-// HashExists checks if an active (non-soft-deleted) image with the given hash
-// already exists. If a soft-deleted record is found, it is hard-deleted so the
-// unique constraint is freed for re-upload.
-func (s *ImageService) HashExists(hash string) (*models.Image, bool) {
-	img, err := s.imageRepo.FindActiveByHash(hash)
+// HashExistsForUser checks whether this user already owns an active image with
+// the content hash. Soft-deleted rows for the same user are purged so the
+// composite unique index can accept a re-upload. Other users' copies are ignored.
+func (s *ImageService) HashExistsForUser(userID uuid.UUID, hash string) (*models.Image, bool) {
+	img, err := s.imageRepo.FindActiveByUserAndHash(userID, hash)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
-			_ = s.imageRepo.HardDeleteByHash(hash)
+			_ = s.imageRepo.HardDeleteByUserAndHash(userID, hash)
 			return nil, false
 		}
 		return nil, false
@@ -208,8 +216,27 @@ func (s *ImageService) HashExists(hash string) (*models.Image, bool) {
 	return img, true
 }
 
+// AnyHashExists returns any active image with the hash (any owner) so uploads
+// can reuse the stored blob without granting the uploader ownership of that row.
+func (s *ImageService) AnyHashExists(hash string) (*models.Image, bool) {
+	img, err := s.imageRepo.FindActiveByHash(hash)
+	if err != nil {
+		return nil, false
+	}
+	return img, true
+}
+
+// HashExists is retained as a thin alias for AnyHashExists for older call sites.
+func (s *ImageService) HashExists(hash string) (*models.Image, bool) {
+	return s.AnyHashExists(hash)
+}
+
 func (s *ImageService) UpdateThumbPath(img *models.Image) error {
 	return s.imageRepo.Update(img)
+}
+
+func (s *ImageService) CountActiveByHash(hash string) (int64, error) {
+	return s.imageRepo.CountActiveByHash(hash)
 }
 
 func localPrettyNameFromImage(img *models.Image) string {

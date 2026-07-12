@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"hill-images/internal/config"
+	"hill-images/internal/models"
 	"hill-images/internal/repository"
 	"hill-images/internal/service"
 	"hill-images/internal/storage"
@@ -330,15 +331,21 @@ func (h *FileHandler) Get(c *gin.Context) {
 		return
 	}
 
-	img, err := h.imageService.GetByHash(hash)
-	if err != nil {
-		fileError(c, http.StatusNotFound, "image not found", "NOT_FOUND")
-		return
-	}
-
-	if img.UserID != userID && !isAdmin(c) {
-		fileError(c, http.StatusForbidden, "forbidden", "FORBIDDEN")
-		return
+	var img *models.Image
+	if isAdmin(c) {
+		var err error
+		img, err = h.imageService.GetByHash(hash)
+		if err != nil {
+			fileError(c, http.StatusNotFound, "image not found", "NOT_FOUND")
+			return
+		}
+	} else {
+		own, ok := h.imageService.HashExistsForUser(userID, hash)
+		if !ok {
+			fileError(c, http.StatusNotFound, "image not found", "NOT_FOUND")
+			return
+		}
+		img = own
 	}
 
 	fileSuccess(c, toImageResponse(*img, storageResponseURL(h.storage, img.Path, img.Hash)))
@@ -358,25 +365,35 @@ func (h *FileHandler) Delete(c *gin.Context) {
 		return
 	}
 
-	img, err := h.imageService.GetByHash(hash)
-	if err != nil {
-		fileError(c, http.StatusNotFound, "image not found", "NOT_FOUND")
-		return
+	var img *models.Image
+	if isAdmin(c) {
+		var err error
+		img, err = h.imageService.GetByHash(hash)
+		if err != nil {
+			fileError(c, http.StatusNotFound, "image not found", "NOT_FOUND")
+			return
+		}
+	} else {
+		own, ok := h.imageService.HashExistsForUser(userID, hash)
+		if !ok {
+			fileError(c, http.StatusNotFound, "image not found", "NOT_FOUND")
+			return
+		}
+		img = own
 	}
 
-	if img.UserID != userID && !isAdmin(c) {
-		fileError(c, http.StatusForbidden, "forbidden", "FORBIDDEN")
-		return
-	}
-
-	_ = h.storage.Delete(c.Request.Context(), img.Path)
-	if img.ThumbPath != "" {
-		_ = h.storage.DeleteThumb(c.Request.Context(), img.ThumbPath)
-	}
-
-	if err := h.imageService.DeleteByHash(hash); err != nil {
+	// Soft-delete this ownership row first, then only purge the blob if no other
+	// active owners still reference the same content hash.
+	if err := h.imageService.Delete(img.ID); err != nil {
 		fileError(c, http.StatusInternalServerError, "failed to delete image", "DELETE_FAILED")
 		return
+	}
+	remaining, _ := h.imageService.CountActiveByHash(img.Hash)
+	if remaining == 0 {
+		_ = h.storage.Delete(c.Request.Context(), img.Path)
+		if img.ThumbPath != "" {
+			_ = h.storage.DeleteThumb(c.Request.Context(), img.ThumbPath)
+		}
 	}
 
 	fileSuccess(c, gin.H{"deleted": true})
@@ -404,6 +421,13 @@ func (h *FileHandler) BatchDelete(c *gin.Context) {
 	}
 
 	ctx := c.Request.Context()
+	// Capture blobs that might become unreferenced after ownership rows go away.
+	type blobRef struct {
+		hash      string
+		path      string
+		thumbPath string
+	}
+	maybeOrphan := make([]blobRef, 0, len(body.Hashes))
 	for _, hash := range body.Hashes {
 		img, err := h.imageService.GetByHash(hash)
 		if err != nil {
@@ -412,16 +436,29 @@ func (h *FileHandler) BatchDelete(c *gin.Context) {
 		if img.UserID != userID && !isAdmin(c) {
 			continue
 		}
-		_ = h.storage.Delete(ctx, img.Path)
-		if img.ThumbPath != "" {
-			_ = h.storage.DeleteThumb(ctx, img.ThumbPath)
+		// Prefer the caller's own row when non-admin.
+		if !isAdmin(c) {
+			if own, ok := h.imageService.HashExistsForUser(userID, hash); ok {
+				img = own
+			}
 		}
+		maybeOrphan = append(maybeOrphan, blobRef{hash: img.Hash, path: img.Path, thumbPath: img.ThumbPath})
 	}
 
 	deleted, err := h.imageService.BatchDelete(body.Hashes, userID, isAdmin(c))
 	if err != nil {
 		fileError(c, http.StatusInternalServerError, "failed to delete images", "BATCH_DELETE_FAILED")
 		return
+	}
+
+	for _, ref := range maybeOrphan {
+		remaining, _ := h.imageService.CountActiveByHash(ref.hash)
+		if remaining == 0 {
+			_ = h.storage.Delete(ctx, ref.path)
+			if ref.thumbPath != "" {
+				_ = h.storage.DeleteThumb(ctx, ref.thumbPath)
+			}
+		}
 	}
 
 	fileSuccess(c, gin.H{"deleted": deleted})
@@ -454,18 +491,24 @@ func (h *FileHandler) Rename(c *gin.Context) {
 		return
 	}
 
-	img, err := h.imageService.GetByHash(hash)
-	if err != nil {
-		fileError(c, http.StatusNotFound, "image not found", "NOT_FOUND")
-		return
+	var img *models.Image
+	if isAdmin(c) {
+		var err error
+		img, err = h.imageService.GetByHash(hash)
+		if err != nil {
+			fileError(c, http.StatusNotFound, "image not found", "NOT_FOUND")
+			return
+		}
+	} else {
+		own, ok := h.imageService.HashExistsForUser(userID, hash)
+		if !ok {
+			fileError(c, http.StatusNotFound, "image not found", "NOT_FOUND")
+			return
+		}
+		img = own
 	}
 
-	if img.UserID != userID && !isAdmin(c) {
-		fileError(c, http.StatusForbidden, "forbidden", "FORBIDDEN")
-		return
-	}
-
-	updated, err := h.imageService.Rename(hash, body.Name)
+	updated, err := h.imageService.RenameByID(img.ID, body.Name)
 	if err != nil {
 		fileError(c, http.StatusInternalServerError, "failed to rename", "RENAME_FAILED")
 		return

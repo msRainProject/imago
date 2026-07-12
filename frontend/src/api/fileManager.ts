@@ -69,12 +69,19 @@ export async function uploadFile(
     xhr.open('POST', '/api/upload', true);
     xhr.responseType = 'json';
 
-    // Attach JWT or API token
-    const jwt = typeof localStorage !== 'undefined' ? localStorage.getItem('hill_token') : null;
-    if (jwt) {
-      xhr.setRequestHeader('Authorization', `Bearer ${jwt}`);
-    } else if (opts?.apiToken) {
+    // Session cookie is sent via withCredentials. API token is optional for scripts.
+    xhr.withCredentials = true;
+    if (opts?.apiToken) {
       xhr.setRequestHeader('X-API-Token', opts.apiToken);
+    }
+    // CSRF double-submit for cookie-authenticated browser uploads.
+    try {
+      const match = document.cookie.match(/(?:^|; )hill_csrf=([^;]*)/);
+      if (match) {
+        xhr.setRequestHeader('X-CSRF-Token', decodeURIComponent(match[1]));
+      }
+    } catch {
+      /* ignore */
     }
 
     if (opts?.signal) {

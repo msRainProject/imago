@@ -20,7 +20,7 @@ import CopyButton from '@components/CopyButton';
 import ConfirmDialog from '@components/ConfirmDialog';
 import { t, format } from '@/i18n/strings';
 import { basename, buildLinkFormats, formatBytes } from '@/utils/format';
-import { getToken } from '@/utils/auth';
+import { isAuthenticated } from '@/utils/auth';
 import { processUploadFile } from '@/utils/uploadProcessing';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -55,10 +55,10 @@ function usePublicStats() {
 
 function useUploadOptions() {
   const [options, setOptions] = useState<UploadClientConfig | null>(null);
-  const jwt = getToken();
+  const authed = isAuthenticated();
 
   useEffect(() => {
-    if (!jwt) {
+    if (!authed) {
       setOptions(null);
       return;
     }
@@ -67,7 +67,7 @@ function useUploadOptions() {
       .catch(() => {
         setOptions(null);
       });
-  }, [jwt]);
+  }, [authed]);
 
   return options;
 }
@@ -100,14 +100,14 @@ export default function HomePage() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const dragCounter = useRef(0);
 
-  const jwt = getToken();
+  const authed = isAuthenticated();
 
   const updateItem = (id: string, patch: Partial<UploadItem>) => {
     setItems((curr) => curr.map((it) => (it.id === id ? { ...it, ...patch } : it)));
   };
 
   const handleFiles = (files: FileList | File[]) => {
-    if (!jwt) {
+    if (!authed) {
       toast.error('请先登录后再上传');
       return;
     }
@@ -165,7 +165,7 @@ export default function HomePage() {
   };
 
   useEffect(() => {
-    if (!jwt) {
+    if (!authed) {
       setIsDragging(false);
       dragCounter.current = 0;
       return;
@@ -203,7 +203,7 @@ export default function HomePage() {
       window.removeEventListener('drop', onDrop);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [jwt]);
+  }, [authed]);
 
   const onPick = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {

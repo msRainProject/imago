@@ -57,17 +57,24 @@ func fileError(c *gin.Context, status int, msg string, errCode string) {
 
 func (h *FileHandler) OptionalAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		tokenStr := ""
 		authHeader := c.GetHeader("Authorization")
-		if authHeader == "" {
+		if authHeader != "" {
+			parts := strings.SplitN(authHeader, " ", 2)
+			if len(parts) == 2 && strings.EqualFold(parts[0], "bearer") {
+				tokenStr = parts[1]
+			}
+		}
+		if tokenStr == "" {
+			if cookie, err := c.Cookie("hill_session"); err == nil {
+				tokenStr = cookie
+			}
+		}
+		if tokenStr == "" {
 			c.Next()
 			return
 		}
-		parts := strings.SplitN(authHeader, " ", 2)
-		if len(parts) != 2 || !strings.EqualFold(parts[0], "bearer") {
-			c.Next()
-			return
-		}
-		claims, err := h.authService.ParseToken(parts[1])
+		claims, err := h.authService.ParseToken(tokenStr)
 		if err != nil {
 			c.Next()
 			return

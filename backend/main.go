@@ -85,6 +85,9 @@ func main() {
 	); err != nil {
 		log.Fatalf("Failed to auto-migrate: %v", err)
 	}
+	// Content hash uniqueness is now per-user (user_id, hash). Drop the legacy
+	// global unique index on hash when present so cross-user ownership rows work.
+	migrateImageHashIndex(db)
 
 	userRepo := repository.NewUserRepo(db)
 	imageRepo := repository.NewImageRepo(db)
@@ -150,6 +153,9 @@ func main() {
 	// IMPORTANT: window is a time.Duration — always use time.Second (not bare int).
 	rateLimiter := middleware.NewRateLimiter(120, 60*time.Second)
 	r.Use(rateLimiter.Middleware())
+	// Browser session CSRF: issue cookie on all responses; enforce on cookie-auth mutations.
+	r.Use(middleware.CSRFCookieIssuer())
+	r.Use(middleware.CSRFProtect())
 	authRateLimiter := middleware.NewRateLimiter(20, 60*time.Second)
 
 	r.GET("/api/health", func(c *gin.Context) {
@@ -382,6 +388,69 @@ func isAlphaNum(s string) bool {
 func isAllDigits(s string) bool {
 	for _, ch := range s {
 		if ch < '0' || ch > '9' {
+			return false
+		}
+	}
+	return true
+}
+
+// migrateImageHashIndex drops the old single-column unique index on images.hash
+// (GORM name varies) so the composite uniqueIndex idx_images_user_hash can apply.
+func migrateImageHashIndex(db *gorm.DB) {
+	// SQLite: list indexes on images and drop unique indexes that only cover hash.
+	rows, err := db.Raw("PRAGMA index_list('images')").Rows()
+	if err != nil {
+		log.Printf("migrate image hash index: list failed: %v", err)
+		return
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var seq int
+		var name string
+		var unique int
+		var origin string
+		var partial int
+		if err := rows.Scan(&seq, &name, &unique, &origin, &partial); err != nil {
+			continue
+		}
+		if unique != 1 {
+			continue
+		}
+		// Only allow safe identifier characters from PRAGMA output.
+		if !isSafeSQLIdent(name) {
+			continue
+		}
+		colRows, err := db.Raw(fmt.Sprintf("PRAGMA index_info(%q)", name)).Rows()
+		if err != nil {
+			continue
+		}
+		cols := []string{}
+		for colRows.Next() {
+			var cseq, cid int
+			var cname string
+			if err := colRows.Scan(&cseq, &cid, &cname); err != nil {
+				continue
+			}
+			cols = append(cols, cname)
+		}
+		_ = colRows.Close()
+		if len(cols) == 1 && cols[0] == "hash" {
+			stmt := fmt.Sprintf("DROP INDEX IF EXISTS %q", name)
+			if err := db.Exec(stmt).Error; err != nil {
+				log.Printf("migrate image hash index: drop %s failed: %v", name, err)
+			} else {
+				log.Printf("migrate image hash index: dropped legacy unique index %s", name)
+			}
+		}
+	}
+}
+
+func isSafeSQLIdent(name string) bool {
+	if name == "" {
+		return false
+	}
+	for _, ch := range name {
+		if !((ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9') || ch == '_' || ch == '-') {
 			return false
 		}
 	}
