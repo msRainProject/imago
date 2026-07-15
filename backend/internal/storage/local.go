@@ -222,6 +222,23 @@ func (s *LocalStorage) Open(_ context.Context, key string) (io.ReadCloser, error
 	return f, nil
 }
 
+// OpenThumb streams a thumbnail from the thumbnail root. Missing thumbnails
+// return ErrNotFound so callers can lazily generate them.
+func (s *LocalStorage) OpenThumb(_ context.Context, key string) (io.ReadCloser, error) {
+	path, err := safeThumbPath(s.thumbPath, key)
+	if err != nil {
+		return nil, err
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, ErrNotFound
+		}
+		return nil, err
+	}
+	return f, nil
+}
+
 // Path returns the absolute filesystem path for an original key. It is kept
 // for callers that need to read the file directly (for example the thumbnail
 // generator, which has to decode the source image off disk).
@@ -384,15 +401,6 @@ func hashFromKey(key string) string {
 		candidate = candidate[:dot]
 	}
 	return candidate
-}
-
-// thumbHashFromKey reverses "<hash>.webp" back to the hash.
-func thumbHashFromKey(key string) string {
-	base := filepath.Base(key)
-	if dot := strings.Index(base, "."); dot >= 0 {
-		return base[:dot]
-	}
-	return base
 }
 
 // RandomToken returns 8 alphanumeric characters sourced from crypto/rand. The upload

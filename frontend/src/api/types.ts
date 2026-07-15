@@ -67,6 +67,7 @@ export interface ImageItem {
   name: string;
   original_name?: string;
   mime_type?: string;
+  thumb_url: string;
   url: string;
   size: number;
   width: number;
@@ -84,6 +85,7 @@ export interface FileListResponse {
 export interface UploadResponse {
   hash: string;
   url: string;
+  thumb_url?: string;
   size: number;
   width: number;
   height: number;
@@ -103,8 +105,10 @@ export interface ListFilesParams {
   page?: number;
   pageSize?: number;
   search?: string;
-  sort?: string;
+  sort?: FileSortMode;
 }
+
+export type FileSortMode = 'date' | 'size' | 'name';
 
 /* ------------------------------- Admin ---------------------------------- */
 

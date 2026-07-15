@@ -55,7 +55,7 @@ storage:
 ### R2 / S3 存储
 当 `storage.driver = "r2"` 时，使用 AWS SDK for Go v2 的 S3 兼容接口：
 - Endpoint：`https://{account_id}.r2.cloudflarestorage.com`
-- 对象前缀：`originals/` 和 `thumbs/`
+- 对象前缀：`originals/` 和 `thumbs/`；文件管理缩略图使用版本化键 `<hash>_v2.jpg`
 
 当 `storage.driver = "s3"` 时，读取同一份配置中的 `storage.s3.*`。
 

@@ -3,19 +3,22 @@ package handler
 import (
 	"bytes"
 	"image"
-	"image/draw"
+	"image/color"
+	stddraw "image/draw"
 	"image/gif"
 	"image/jpeg"
 	"io"
 	"os"
 
+	xdraw "golang.org/x/image/draw"
 	"golang.org/x/image/webp"
 )
 
-// generateThumbnailFromReader creates a 300px-wide thumbnail from the source
-// image. Output is encoded as JPEG at quality 80 (stored with .webp extension
-// for cache key consistency). Go's stdlib lacks a WebP encoder; a production
-// deployment would swap this for a libwebp CGo encoder.
+const thumbMaxSide = 320
+
+// generateThumbnailFromReader creates a versioned thumbnail from the source
+// image. Output is always encoded as JPEG so the response content type matches
+// the stored bytes.
 //
 // This is the driver-agnostic variant: the handler passes the source as an
 // io.Reader so the same code works for local files and R2 downloads.
@@ -25,10 +28,10 @@ func generateThumbnailFromReader(src io.Reader, mimeType string) ([]byte, error)
 		return nil, err
 	}
 
-	thumb := resizeToWidth(img, 300)
+	thumb := resizeToMaxSide(img, thumbMaxSide)
 
 	var buf bytes.Buffer
-	if err := jpeg.Encode(&buf, thumb, &jpeg.Options{Quality: 80}); err != nil {
+	if err := jpeg.Encode(&buf, thumb, &jpeg.Options{Quality: 85}); err != nil {
 		return nil, err
 	}
 
@@ -62,41 +65,49 @@ func decodeGIFFirstFrame(r io.Reader) (image.Image, error) {
 		bounds = image.Rect(0, 0, 1, 1)
 	}
 	canvas := image.NewRGBA(bounds)
-	draw.Draw(canvas, bounds, g.Image[0], bounds.Min, draw.Src)
+	stddraw.Draw(canvas, bounds, g.Image[0], bounds.Min, stddraw.Src)
 	return canvas, nil
 }
 
-// resizeToWidth resizes an image to the target width using nearest-neighbor
-// scaling.
-func resizeToWidth(src image.Image, targetWidth int) image.Image {
+// resizeToMaxSide resizes an image so its longest edge is at most maxSide,
+// preserving aspect ratio with a high-quality resampler. JPEG cannot retain
+// alpha, so transparent pixels are composited onto white.
+func resizeToMaxSide(src image.Image, maxSide int) image.Image {
 	origBounds := src.Bounds()
 	origW := origBounds.Dx()
 	origH := origBounds.Dy()
-	if origW <= 0 || origH <= 0 || origW <= targetWidth {
+	if origW <= 0 || origH <= 0 {
 		return src
 	}
 
-	ratio := float64(targetWidth) / float64(origW)
-	targetHeight := int(float64(origH) * ratio)
+	targetWidth := origW
+	targetHeight := origH
+	if origW > maxSide || origH > maxSide {
+		scale := float64(maxSide) / float64(maxInt(origW, origH))
+		targetWidth = int(float64(origW) * scale)
+		targetHeight = int(float64(origH) * scale)
+	}
+	if targetWidth < 1 {
+		targetWidth = 1
+	}
 	if targetHeight < 1 {
 		targetHeight = 1
 	}
-
 	dst := image.NewRGBA(image.Rect(0, 0, targetWidth, targetHeight))
-	for y := 0; y < targetHeight; y++ {
-		for x := 0; x < targetWidth; x++ {
-			srcX := int(float64(x) / ratio)
-			srcY := int(float64(y) / ratio)
-			if srcX >= origW {
-				srcX = origW - 1
-			}
-			if srcY >= origH {
-				srcY = origH - 1
-			}
-			dst.Set(x, y, src.At(srcX+origBounds.Min.X, srcY+origBounds.Min.Y))
-		}
+	stddraw.Draw(dst, dst.Bounds(), image.NewUniform(color.White), image.Point{}, stddraw.Src)
+	if targetWidth == origW && targetHeight == origH {
+		stddraw.Draw(dst, dst.Bounds(), src, origBounds.Min, stddraw.Over)
+	} else {
+		xdraw.CatmullRom.Scale(dst, dst.Bounds(), src, origBounds, stddraw.Over, nil)
 	}
 	return dst
+}
+
+func maxInt(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
 }
 
 // osStat and openFile are thin shims around the os package so the rest of the

@@ -32,7 +32,6 @@ const NUMBER_KEYS = new Set<string>([
   'upload.process.max_height',
 ]);
 const PASSWORD_KEYS = new Set<string>([
-  'upyun.password',
   'r2.secret_access_key',
   's3.secret_access_key',
 ]);

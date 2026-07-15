@@ -159,6 +159,7 @@ GET /api/files/:hash
     "original_name": "photo.jpg",
     "mime_type": "image/webp",
     "url": "https://images.example.com/tx2U5p5K1a9be62fdeeb",
+    "thumb_url": "/api/files/1a9be62f.../thumb",
     "size": 98,
     "width": 70,
     "height": 70,
@@ -175,7 +176,9 @@ GET /api/files/:hash
 GET /api/files/:hash/thumb
 ```
 
-**认证：** 无需（首次访问自动生成）。返回 WebP 缩略图。
+**认证：** JWT 登录态，并校验文件属主（管理员可访问全部文件）。
+
+首次访问时生成并缓存版本化 JPEG 缩略图；后续访问复用缓存。响应带长期 immutable 缓存头和 ETag。无法生成缩略图时返回错误，不会回退传输原图。
 
 ---
 
@@ -300,7 +303,7 @@ async function uploadImage(file, folder = null) {
 | `PATCH` | `/api/files/:hash` | JWT/Key/Token | 重命名 |
 | `DELETE` | `/api/files/:hash` | JWT/Key/Token | 删除 |
 | `POST` | `/api/files/batch_delete` | JWT/Key/Token | 批量删除 |
-| `GET` | `/api/files/:hash/thumb` | 无需 | 缩略图 |
+| `GET` | `/api/files/:hash/thumb` | JWT | 文件管理缩略图 |
 | `POST` | `/api/upload` | JWT/Key/Token | 上传 |
 | `GET` | `/api/upload/options` | 无需 | 上传配置 |
 

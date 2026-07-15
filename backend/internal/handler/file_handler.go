@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -125,6 +126,7 @@ type FileHandler struct {
 	apiTokenRepo   *repository.APITokenRepo
 	apiKeyRepo     *repository.APIKeyRepo
 	userRepo       *repository.UserRepo
+	thumbFlight    *thumbFlight
 }
 
 func NewFileHandler(
@@ -150,6 +152,7 @@ func NewFileHandler(
 		apiTokenRepo:   apiTokenRepo,
 		apiKeyRepo:     apiKeyRepo,
 		userRepo:       userRepo,
+		thumbFlight:    newThumbFlight(),
 	}
 }
 
@@ -304,7 +307,11 @@ func (h *FileHandler) List(c *gin.Context) {
 
 	items := make([]imageResponse, 0, len(result.Data))
 	for _, img := range result.Data {
-		items = append(items, toImageResponse(img, storageResponseURL(h.storage, img.Path, img.Hash)))
+		items = append(items, toImageResponse(
+			img,
+			storageResponseURL(h.storage, img.Path, img.Hash),
+			thumbResponseURL(img.Hash),
+		))
 	}
 
 	fileSuccess(c, gin.H{
@@ -348,7 +355,11 @@ func (h *FileHandler) Get(c *gin.Context) {
 		img = own
 	}
 
-	fileSuccess(c, toImageResponse(*img, storageResponseURL(h.storage, img.Path, img.Hash)))
+	fileSuccess(c, toImageResponse(
+		*img,
+		storageResponseURL(h.storage, img.Path, img.Hash),
+		thumbResponseURL(img.Hash),
+	))
 }
 
 // Delete handles DELETE /api/files/:hash — delete single image.
@@ -391,9 +402,7 @@ func (h *FileHandler) Delete(c *gin.Context) {
 	remaining, _ := h.imageService.CountActiveByHash(img.Hash)
 	if remaining == 0 {
 		_ = h.storage.Delete(c.Request.Context(), img.Path)
-		if img.ThumbPath != "" {
-			_ = h.storage.DeleteThumb(c.Request.Context(), img.ThumbPath)
-		}
+		h.deleteThumbArtifacts(c.Request.Context(), img)
 	}
 
 	fileSuccess(c, gin.H{"deleted": true})
@@ -455,13 +464,25 @@ func (h *FileHandler) BatchDelete(c *gin.Context) {
 		remaining, _ := h.imageService.CountActiveByHash(ref.hash)
 		if remaining == 0 {
 			_ = h.storage.Delete(ctx, ref.path)
-			if ref.thumbPath != "" {
-				_ = h.storage.DeleteThumb(ctx, ref.thumbPath)
-			}
+			h.deleteThumbArtifactsForHash(ctx, ref.hash, ref.thumbPath)
 		}
 	}
 
 	fileSuccess(c, gin.H{"deleted": deleted})
+}
+
+func (h *FileHandler) deleteThumbArtifacts(ctx context.Context, img *models.Image) {
+	h.deleteThumbArtifactsForHash(ctx, img.Hash, img.ThumbPath)
+}
+
+func (h *FileHandler) deleteThumbArtifactsForHash(ctx context.Context, hash, thumbPath string) {
+	if thumbPath != "" {
+		_ = h.storage.DeleteThumb(ctx, thumbPath)
+	}
+	currentThumb := storage.ThumbKeyForHash(hash)
+	if currentThumb != thumbPath {
+		_ = h.storage.DeleteThumb(ctx, currentThumb)
+	}
 }
 
 // Rename handles PATCH /api/files/:hash — rename image.
@@ -514,7 +535,11 @@ func (h *FileHandler) Rename(c *gin.Context) {
 		return
 	}
 
-	fileSuccess(c, toImageResponse(*updated, storageResponseURL(h.storage, updated.Path, updated.Hash)))
+	fileSuccess(c, toImageResponse(
+		*updated,
+		storageResponseURL(h.storage, updated.Path, updated.Hash),
+		thumbResponseURL(updated.Hash),
+	))
 }
 
 // Stats handles GET /api/stats — public statistics.

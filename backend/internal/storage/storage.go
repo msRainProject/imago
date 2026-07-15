@@ -51,6 +51,9 @@ type Storage interface {
 	// Returns ErrNotFound when the object does not exist.
 	Open(ctx context.Context, key string) (io.ReadCloser, error)
 
+	// OpenThumb returns a stream of a thumbnail object's bytes.
+	OpenThumb(ctx context.Context, key string) (io.ReadCloser, error)
+
 	// PublicURL returns the URL the upload response should advertise.
 	// For local mode this is the canonical pretty local URL. For R2/S3 it
 	// is the configured public base URL when set, otherwise a presigned GET

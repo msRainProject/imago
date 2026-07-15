@@ -151,7 +151,7 @@ func (s *R2Storage) SaveThumb(ctx context.Context, key string, data io.Reader) e
 		Bucket:      awsv2.String(s.bucket),
 		Key:         awsv2.String(s.thumbKey(key)),
 		Body:        bytes.NewReader(body),
-		ContentType: awsv2.String("image/webp"),
+		ContentType: awsv2.String("image/jpeg"),
 	}
 	if _, err := s.client.PutObject(ctx, input); err != nil {
 		return fmt.Errorf("r2: put thumb %q: %w", key, err)
@@ -254,7 +254,7 @@ func (s *R2Storage) presignedURL(storedKey string) string {
 		opts.Expires = 24 * time.Hour
 	})
 	if err != nil {
-		return "/api/files/thumb/" + sanitize(strings.TrimPrefix(storedKey, s.keyPrefix+"/"))
+		return "/api/files/" + thumbHashFromKey(storedKey) + "/thumb"
 	}
 	return out.URL
 }

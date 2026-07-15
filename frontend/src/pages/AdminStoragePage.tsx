@@ -1,4 +1,4 @@
-import { Cloud, CloudCog, HardDrive, KeyRound } from 'lucide-react';
+import { CloudCog, HardDrive, KeyRound } from 'lucide-react';
 import { t } from '@/i18n/strings';
 import { SettingsForm, type SettingsGroup } from '@components/SettingsForm';
 
@@ -7,13 +7,6 @@ const LOCAL_FIELDS = [
   'storage.local.root',
   'storage.local.path_template',
   'storage.local.public_base_url',
-] as const;
-const UPYUN_FIELDS = [
-  'upyun.bucket',
-  'upyun.operator',
-  'upyun.password',
-  'upyun.domain',
-  'upyun.endpoint',
 ] as const;
 const R2_FIELDS = [
   'r2.account_id',
@@ -49,13 +42,6 @@ const GROUPS: readonly SettingsGroup[] = [
     description: t.storage.groups.local.description,
     icon: <HardDrive className="h-4 w-4" />,
     fields: LOCAL_FIELDS,
-  },
-  {
-    key: 'upyun',
-    title: t.storage.groups.upyun.title,
-    description: t.storage.groups.upyun.description,
-    icon: <Cloud className="h-4 w-4" />,
-    fields: UPYUN_FIELDS,
   },
   {
     key: 'r2',

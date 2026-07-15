@@ -33,7 +33,7 @@ function useDashboardData() {
       try {
         const [statsRes, filesRes] = await Promise.allSettled([
           fetchStats(),
-          listFiles({ page: 1, pageSize: 200, sort: 'newest' }),
+          listFiles({ page: 1, pageSize: 200, sort: 'date' }),
         ]);
         if (cancelled) return;
         if (statsRes.status === 'fulfilled') setStats(statsRes.value);

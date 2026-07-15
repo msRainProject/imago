@@ -115,13 +115,14 @@ type imageResponse struct {
 	OriginalName string `json:"original_name"`
 	MimeType     string `json:"mime_type"`
 	URL          string `json:"url"`
+	ThumbURL     string `json:"thumb_url"`
 	Size         int64  `json:"size"`
 	Width        int    `json:"width"`
 	Height       int    `json:"height"`
 	UploadedAt   string `json:"uploaded_at"`
 }
 
-func toImageResponse(img models.Image, publicURL string) imageResponse {
+func toImageResponse(img models.Image, publicURL, thumbURL string) imageResponse {
 	return imageResponse{
 		ID:           img.ID.String(),
 		Hash:         img.Hash,
@@ -129,6 +130,7 @@ func toImageResponse(img models.Image, publicURL string) imageResponse {
 		OriginalName: img.OriginalName,
 		MimeType:     img.MimeType,
 		URL:          publicURL,
+		ThumbURL:     thumbURL,
 		Size:         img.Size,
 		Width:        img.Width,
 		Height:       img.Height,
@@ -141,6 +143,10 @@ func storageResponseURL(s storage.Storage, key, hash string) string {
 		return local.PrettyPublicURL(key, hash)
 	}
 	return s.PublicURL(key)
+}
+
+func thumbResponseURL(hash string) string {
+	return "/api/files/" + hash + "/thumb"
 }
 
 // extractDimensions reads image dimensions from file data.

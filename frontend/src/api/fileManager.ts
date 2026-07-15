@@ -50,7 +50,7 @@ export function renameFile(hash: string, name: string): Promise<ImageItem> {
  * POST /api/upload
  * Multipart upload of a single file.
  * Supports JWT auth OR X-API-Token header.
- * Returns UploadResponse with hash, url, size, width, height.
+ * Returns UploadResponse with hash, url, and image metadata.
  */
 export async function uploadFile(
   file: File,

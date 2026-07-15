@@ -227,7 +227,7 @@ func main() {
 
 		files := api.Group("/files")
 		{
-			files.GET("/:hash/thumb", fileHandler.OptionalAuth(), fileHandler.ServeThumb)
+			files.GET("/:hash/thumb", middleware.JWTAuth(authService), fileHandler.ServeThumb)
 
 			filesProtected := files.Group("")
 			filesProtected.Use(middleware.JWTOrAPIToken(authService, apiTokenRepo, apiKeyRepo, userRepo))

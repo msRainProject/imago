@@ -108,7 +108,7 @@ func (r *ImageRepo) FindByUserID(userID uuid.UUID, offset, limit int) ([]models.
 func (r *ImageRepo) SearchByUserID(userID uuid.UUID, query string, offset, limit int) ([]models.Image, error) {
 	var images []models.Image
 	like := "%" + query + "%"
-	if err := r.db.Where("user_id = ? AND original_name LIKE ?", userID, like).
+	if err := r.db.Where("user_id = ? AND (original_name LIKE ? OR filename LIKE ?)", userID, like, like).
 		Offset(offset).Limit(limit).Order("created_at DESC").Find(&images).Error; err != nil {
 		return nil, err
 	}
@@ -119,7 +119,7 @@ func (r *ImageRepo) SearchByUserID(userID uuid.UUID, query string, offset, limit
 func (r *ImageRepo) SearchAll(query string, offset, limit int) ([]models.Image, error) {
 	var images []models.Image
 	like := "%" + query + "%"
-	if err := r.db.Where("original_name LIKE ?", like).
+	if err := r.db.Where("original_name LIKE ? OR filename LIKE ?", like, like).
 		Offset(offset).Limit(limit).Order("created_at DESC").Find(&images).Error; err != nil {
 		return nil, err
 	}
@@ -200,7 +200,7 @@ func (r *ImageRepo) CountAll() (int64, error) {
 func (r *ImageRepo) CountSearchByUserID(userID uuid.UUID, query string) (int64, error) {
 	var count int64
 	like := "%" + query + "%"
-	if err := r.db.Model(&models.Image{}).Where("user_id = ? AND original_name LIKE ?", userID, like).Count(&count).Error; err != nil {
+	if err := r.db.Model(&models.Image{}).Where("user_id = ? AND (original_name LIKE ? OR filename LIKE ?)", userID, like, like).Count(&count).Error; err != nil {
 		return 0, err
 	}
 	return count, nil
@@ -210,7 +210,7 @@ func (r *ImageRepo) CountSearchByUserID(userID uuid.UUID, query string) (int64, 
 func (r *ImageRepo) CountSearchAll(query string) (int64, error) {
 	var count int64
 	like := "%" + query + "%"
-	if err := r.db.Model(&models.Image{}).Where("original_name LIKE ?", like).Count(&count).Error; err != nil {
+	if err := r.db.Model(&models.Image{}).Where("original_name LIKE ? OR filename LIKE ?", like, like).Count(&count).Error; err != nil {
 		return 0, err
 	}
 	return count, nil

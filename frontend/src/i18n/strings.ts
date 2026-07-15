@@ -84,16 +84,28 @@ export const t = {
   admin: {
     title: '文件管理',
     subtitle: '浏览、搜索、批量操作所有上传',
-    searchPlaceholder: '按文件名搜索…',
-    storageAll: '全部',
-    storageLocal: '本地',
-    storageUpyun: '又拍云',
+    searchPlaceholder: '按显示名或原始名搜索…',
+    uploadShortcut: '去首页上传',
 
-    colName: '文件名',
+    viewTable: '列表',
+    viewGrid: '紧凑网格',
+    sortLabel: '排序',
+    sortLatest: '最新',
+    sortSize: '大小',
+    sortName: '名称',
+
+    colName: '文件',
+    colMime: 'MIME',
+    colDimensions: '尺寸',
     colSize: '大小',
-    colDate: '修改时间',
+    colDate: '上传时间',
     colStorage: '存储',
     colActions: '操作',
+
+    previewTitle: '站内预览',
+    previewOriginal: '查看原图',
+    previewThumb: '查看缩略图',
+    previewDirect: '复制直链',
 
     actionRename: '重命名',
     actionDelete: '删除',
@@ -208,11 +220,6 @@ export const t = {
       'storage.local.root': '本地存储根目录',
       'storage.local.path_template': '子目录模板（不含文件名）',
       'storage.local.public_base_url': '本地图片访问域名',
-      'upyun.bucket': 'Bucket 名称',
-      'upyun.operator': '操作员账号',
-      'upyun.password': '操作员密码',
-      'upyun.domain': '又拍云加速域名',
-      'upyun.endpoint': 'API 节点',
       'r2.account_id': 'R2 账户 ID',
       'r2.access_key_id': 'Access Key ID',
       'r2.secret_access_key': 'Secret Access Key',
@@ -258,7 +265,6 @@ export const t = {
     /* Driver options (only "value" → user-facing label) */
     driverOptions: {
       local: '本地存储',
-      upyun: '又拍云存储',
       r2: 'Cloudflare R2',
       s3: '通用 S3',
     } as Record<string, string>,
@@ -420,15 +426,11 @@ export const t = {
     groups: {
       driver: {
         title: '存储驱动',
-        description: '选择文件保存到本地、又拍云、Cloudflare R2 或通用 S3',
+        description: '选择文件保存到本地、Cloudflare R2 或通用 S3',
       },
       local: {
         title: '本地存储',
         description: '文件保存路径与图片访问域名，留空则继承站点设置',
-      },
-      upyun: {
-        title: '又拍云存储',
-        description: '使用又拍云时需要填写这些信息',
       },
       r2: {
         title: 'Cloudflare R2',
