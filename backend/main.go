@@ -403,7 +403,7 @@ func migrateImageHashIndex(db *gorm.DB) {
 		log.Printf("migrate image hash index: list failed: %v", err)
 		return
 	}
-	defer rows.Close()
+	legacyIndexes := make([]string, 0)
 	for rows.Next() {
 		var seq int
 		var name string
@@ -435,12 +435,18 @@ func migrateImageHashIndex(db *gorm.DB) {
 		}
 		_ = colRows.Close()
 		if len(cols) == 1 && cols[0] == "hash" {
-			stmt := fmt.Sprintf("DROP INDEX IF EXISTS %q", name)
-			if err := db.Exec(stmt).Error; err != nil {
-				log.Printf("migrate image hash index: drop %s failed: %v", name, err)
-			} else {
-				log.Printf("migrate image hash index: dropped legacy unique index %s", name)
-			}
+			legacyIndexes = append(legacyIndexes, name)
+		}
+	}
+	// Close the PRAGMA cursor before executing schema changes. SQLite otherwise
+	// keeps a read lock and DROP INDEX fails with SQLITE_BUSY.
+	_ = rows.Close()
+	for _, name := range legacyIndexes {
+		stmt := fmt.Sprintf("DROP INDEX IF EXISTS %q", name)
+		if err := db.Exec(stmt).Error; err != nil {
+			log.Printf("migrate image hash index: drop %s failed: %v", name, err)
+		} else {
+			log.Printf("migrate image hash index: dropped legacy unique index %s", name)
 		}
 	}
 }
