@@ -565,7 +565,7 @@ function FileGrid({
   if (loading && files.length === 0) {
     return (
       <Card className="overflow-hidden p-4">
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
           {Array.from({ length: 6 }).map((_, i) => (
             <Card key={i} className="overflow-hidden border-border/70">
               <div className="space-y-3 p-4">
@@ -608,7 +608,7 @@ function FileGrid({
           {format(t.admin.bulkBar, { n: selected.size })}
         </span>
       </div>
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
         {files.map((file) => (
           <FileCard
             key={file.hash}
